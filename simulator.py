@@ -27,7 +27,7 @@ def IK(x,y,A=0.5):
         Alfa = math.degrees(Alfa)
         Beta = math.degrees(Beta) - 120
 
-        Alfa = max(15,min(165,Alfa))
+        Alfa = max(15,min(155,Alfa))
         Beta = max(15,min(165,Beta))
     
     return Alfa, Beta
@@ -127,25 +127,35 @@ class HelloWorld(tk.Tk):
         """
         Function to draw the simulated robo-dog-leg
         """
+        point_list = []
+        point_list.append((self.zeroX,self.zeroY))
+        point_list.append((self.zeroX-self.servo_space,self.zeroY))
+
         # 1st servo arm
         x0,y0 = self.drawBar(self.zeroX - self.servo_space, self.zeroY,self.servo_R,Alfa,clr="red")
+        point_list.append((x0,y0))
         # 2nd servo arm
-        self.drawBar(self.zeroX, self.zeroY,self.servo_R,Beta+120,clr="red")
+        x,y = self.drawBar(self.zeroX, self.zeroY,self.servo_R,Beta+120,clr="red")
+        point_list.append((x,y))
         # 1st servo bar
-        self.drawBar(x0,y0,self.servo_space,180,clr="silver")
+        x0,y0 = self.drawBar(x0,y0,self.servo_space,180,clr="silver")
+        point_list.append((x0,y0))
         #1st part of leg
         x0,y0 = self.drawBar(self.zeroX, self.zeroY,self.A,Alfa,clr="green")
+        point_list.append((x0,y0))
         # 2nd part of leg
-        self.drawBar(x0,y0,self.A,Beta+120-180,clr="magenta")
+        x,y = self.drawBar(x0,y0,self.A,Beta+120-180,clr="magenta")
+        point_list.append((x,y))
         x0,y0 = self.drawBar(x0,y0,self.servo_R,Beta+120,clr="magenta")
+        point_list.append((x0,y0))
         # 2nd servo bar
-        self.drawBar(x0,y0,self.A,Alfa-180,clr="silver")
+        x0,y0 = self.drawBar(x0,y0,self.A,Alfa-180,clr="silver")
+        point_list.append((x0,y0))
 
-
-
-
-
-        ...
+        for pt in point_list:
+            x,y = pt
+            tmp = self.c.create_oval(x-10,y-10,x+10,y+10, fill="silver")
+            self.c_objects.append(tmp)
 
     def update(self, event):
         self.klikx = event.x
