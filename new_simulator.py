@@ -14,7 +14,66 @@ try:
 except:
     pass
     
+def IK2(x,y, L1,L2,A,B,C,D):
+    delta = math.sqrt(x**2+y**2)
+    dzetta0 = math.acos(x/delta)
+    print(f"delta: {delta}")
+    delta_max = (L1+L2) 
+    if delta > delta_max:
+        print("Readjusting...")
+        x = delta_max * math.cos(dzetta0)
+        y = delta_max * math.sin(dzetta0)
+        delta = math.sqrt(x**2+y**2)
+        dzetta0 = math.acos(x/delta)
+        print(f"delta: {delta}")
 
+    x = max(0,x)
+    y = max(L1,y)
+
+
+    fi_in = (delta**2+L1**2-L2**2)/(2*delta*L1)
+    fi_in = min(1,max(-1,fi_in))
+    fi = math.acos(fi_in)
+
+    dz_in = (L1**2+L2**2-delta**2)/(2*L1*L2)
+    dz_in = min(1,max(-1,dz_in))
+    dzetta = 180 - math.degrees(math.acos(dz_in))
+
+    Beta = dzetta0 + fi
+    Beta = math.degrees(Beta)
+
+    z = math.sqrt(C**2+B**2-2*B*C*math.cos(math.radians(Beta)))
+    print(f"z: {z}")
+
+    A1_in = (z**2+C**2-B**2)/(2*z*C)
+    A2_in = (z**2+A**2-D**2)/(2*z*A)
+    A1_in = min(1,max(-1,A1_in))
+    A2_in = min(1,max(-1,A2_in))
+
+    print(f"A1: {A1_in} . A2: {A2_in}")
+
+    Alfa1 = math.acos(A1_in)
+    Alfa2 = math.acos(A2_in)
+
+    Servo1 = 180 - math.degrees(Alfa1) - math.degrees(Alfa2)
+    Servo1 = min(150,max(0,Servo1))
+
+    M = math.sqrt(L1**2+B**2-2*L1*B*math.cos(math.radians(dzetta)))
+    print(f"M: {M}")
+
+    A1_in = (L1**2+M**2-B**2)/(2*L1*M)
+    A2_in = (A**2+M**2-L1**2)/(2*A*M)
+    A1_in = min(1,max(-1,A1_in))
+    A2_in = min(1,max(-1,A2_in))
+
+    print(f"A1: {A1_in} . A2: {A2_in}")
+    Alfa1 = math.acos(A1_in)
+    Alfa2 = math.acos(A2_in)
+
+    Servo2 = Servo1 + math.degrees(Alfa1) + math.degrees(Alfa2)
+    Servo2 = min(150+120,max(120,Servo2))
+
+    return Servo1, Servo2
 
 def IK(x,y,A=0.5):
     """
@@ -160,11 +219,19 @@ class HelloWorld(tk.Tk):
         self.redraw()
 
         # base data for the leg
-        skala = 1.5
-        self.A = 90 * skala
+        skala = 2
+        self.skala = skala
+        self.A = 17 * skala
+        self.B = 35 * skala
+        self.C = 55 * skala
+        self.D = 60 * skala
+        self.L1 = 90 * skala
+        self.L2 = (90-35) * skala
+
         self.servo_R = 17 * skala 
         self.servo_space = 60 * skala
         self.servo_spacer = 60 * skala
+
 
         # initial draw
         self.makeLeg(self.sAlfa.get(), self.sBeta.get())
@@ -232,53 +299,103 @@ class HelloWorld(tk.Tk):
         """
         point_list = []
         point_list.append((self.zeroX,self.zeroY))
-        point_list.append((self.zeroX-self.servo_space,self.zeroY))
+        point_list.append((self.zeroX-self.C,self.zeroY))
 
         # 1st servo arm
-        x0,y0 = self.drawBar(self.zeroX - self.servo_space, self.zeroY,self.servo_R,Alfa,clr="red")
+        x0,y0 = self.drawBar(self.zeroX - self.C, self.zeroY,self.A,Alfa,clr="red")
         point_list.append((x0,y0))
         # 2nd servo arm
-        x,y = self.drawBar(self.zeroX, self.zeroY,self.servo_R,Beta+120,clr="red")
-        point_list.append((x,y))
-        # 1st servo bar
-        x0,y0 = self.drawBar(x0,y0,self.servo_spacer,180,clr="silver")
-        point_list.append((x0,y0))
-        #1st part of leg
-        x0,y0 = self.drawBar(self.zeroX, self.zeroY,self.A,Alfa+10,clr="green")
-        point_list.append((x0,y0))
-        # 2nd part of leg
-        x,y = self.drawBar(x0,y0,self.A,Beta+120-180,clr="magenta")
-        point_list.append((x,y))
-        x0,y0 = self.drawBar(x0,y0,self.servo_R,Beta+120,clr="magenta")
-        point_list.append((x0,y0))
-        # 2nd servo bar
-        x0,y0 = self.drawBar(x0,y0,self.A,Alfa+10-180,clr="silver")
-        point_list.append((x0,y0))
+        x1,y1 = self.drawBar(self.zeroX, self.zeroY,self.A,Beta+120,clr="red")
+        point_list.append((x1,y1))
+
+        # leg part L1
+        in_d = -2*self.A*self.C*math.cos(math.pi-math.radians(Alfa))+self.A**2+self.C**2
+        d = math.sqrt(in_d)
+        fi1 = math.acos((d**2+self.C**2-self.A**2)/(2*d*self.C)) 
+        fi2 = math.acos((d**2+self.B**2-self.D**2)/(2*d*self.B)) 
+        Beta1 = fi1 + fi2
+        Beta1 = math.degrees(Beta1)
+
+        x2,y2 = self.drawBar(self.zeroX, self.zeroY, self.L1, Beta1)
+        point_list.append((x2,y2))
+
+        # leg part 2
+        in_w = self.L1**2 + self.A**2 -2*self.L1*self.A*math.cos(math.radians(Beta+120)-math.radians(Beta1))
+        w = math.sqrt(in_w)
+
+        fii1 = math.acos((self.L1**2+w**2 - self.A**2)/(2*self.L1*w))
+        fii2 = math.acos((self.B**2+w**2-self.L1**2)/(2*self.B*w))
+
+        dzetta = math.degrees(fii1 + fii2)
+
+        psi = Beta1 - dzetta 
+
+        xe,ye = self.drawBar(x2,y2,self.L2,psi)
+        point_list.append((xe,ye))
+
+        x4,y4 = self.drawBar(x2,y2,self.B,psi+180)
+        point_list.append((x4,y4))
+
+        # calculations for the connection arms
+        d_angle = math.acos((self.B**2+self.D**2-d**2)/(2*self.D*self.B))
+        d_angle = math.degrees(d_angle)
+
+        d_angle = Beta1 + d_angle
+        x5,y5 = self.drawBar(x0,y0,self.D,d_angle,clr="green")
+        point_list.append((x5,y5))
+
+        w_angle = math.acos((self.B**2+self.L1**2-w**2)/(2*self.B*self.L1))
+        w_angle = math.degrees(w_angle)
+
+        x6,y6 = self.drawBar(x4,y4,self.L1,psi+180+180-w_angle, clr="green")
+        point_list.append((x6,y6))
+
+        xe = int(xe)
+        ye = int(ye)
+        print(f"x,y: ({xe},{xe})")
+
+
+
+        # # 1st servo bar
+        # x0,y0 = self.drawBar(x0,y0,self.servo_spacer,180,clr="silver")
+        # point_list.append((x0,y0))
+        # #1st part of leg
+        # x0,y0 = self.drawBar(self.zeroX, self.zeroY,self.A,Alfa+10,clr="green")
+        # point_list.append((x0,y0))
+        # # 2nd part of leg
+        # x,y = self.drawBar(x0,y0,self.A,Beta+120-180,clr="magenta")
+        # point_list.append((x,y))
+        # x0,y0 = self.drawBar(x0,y0,self.servo_R,Beta+120,clr="magenta")
+        # point_list.append((x0,y0))
+        # # 2nd servo bar
+        # x0,y0 = self.drawBar(x0,y0,self.A,Alfa+10-180,clr="silver")
+        # point_list.append((x0,y0))
 
         for pt in point_list:
             x,y = pt
-            tmp = self.c.create_oval(x-10,y-10,x+10,y+10, fill="silver")
+            tmp = self.c.create_oval(x-5,y-5,x+5,y+5, fill="silver")
             self.c_objects.append(tmp)
 
     def update(self, event):
-        self.klikx = event.x
-        self.kliky = event.y
+        if (self.klikx != event.x) or (self.kliky != event.y):
+            self.klikx = event.x
+            self.kliky = event.y
 
 
-        x = event.x - self.zeroX
-        y = event.y - self.zeroY
-        x = x / (2*self.A)
-        y = y / (2*self.A)
+            x = event.x - self.zeroX
+            y = event.y - self.zeroY
+            # x = x / (2*self.A)
+            # y = y / (2*self.A)
+            # print(x,y)
 
-        print(x,y)
+            A,B = IK2(-x,y, self.L1,self.L2,self.A,self.B,self.C,self.D)
 
-        A,B = IK(-x,y)
-        print(A, B)
-        if A and B:
+            print(A, B-120)
+
             self.redraw()
-            self.makeLeg(A,B)
+            self.makeLeg(A,B-120)
             self.sAlfa.set(int(A))
-            self.sBeta.set(int(B))
+            self.sBeta.set(int(B-120))
         
         ...
 
