@@ -320,11 +320,14 @@ class HelloWorld(tk.Tk):
         # print(legs)
         
         for l in legs:
-            self.Lxy[l][0] += dx * step
-            self.Lxy[l][1] += dy * step
+            x = self.Lxy[l][0] + dx * step
+            y = self.Lxy[l][1] + dy * step
         
-        # print(f"Lxy: {self.Lxy}")
+            self.Lxy[l][0] = min(405,max(130,x))
+            self.Lxy[l][1] = min(455,max(245,y))
+
         self.uart2()
+        print(self.Lxy)
     
     def uart2(self):
         A = []
