@@ -14,18 +14,18 @@ try:
 except:
     pass
     
-def IK2(x,y, L1,L2,A,B,C,D):
+def IK2(x,y, L1,L2,L3,A,B,C,D):
     delta = math.sqrt(x**2+y**2)
     dzetta0 = math.acos(x/delta)
-    print(f"delta: {delta}")
-    delta_max = (L1+L2) 
+    # print(f"delta: {delta}")
+    delta_max = (L1+L2) * 0.98
     if delta > delta_max:
-        print("Readjusting...")
+        # print("Readjusting...")
         x = delta_max * math.cos(dzetta0)
         y = delta_max * math.sin(dzetta0)
         delta = math.sqrt(x**2+y**2)
         dzetta0 = math.acos(x/delta)
-        print(f"delta: {delta}")
+        # print(f"delta: {delta}")
 
     x = max(0,x)
     y = max(L1,y)
@@ -43,14 +43,14 @@ def IK2(x,y, L1,L2,A,B,C,D):
     Beta = math.degrees(Beta)
 
     z = math.sqrt(C**2+B**2-2*B*C*math.cos(math.radians(Beta)))
-    print(f"z: {z}")
+    # print(f"z: {z}")
 
     A1_in = (z**2+C**2-B**2)/(2*z*C)
     A2_in = (z**2+A**2-D**2)/(2*z*A)
     A1_in = min(1,max(-1,A1_in))
     A2_in = min(1,max(-1,A2_in))
 
-    print(f"A1: {A1_in} . A2: {A2_in}")
+    # print(f"A1: {A1_in} . A2: {A2_in}")
 
     Alfa1 = math.acos(A1_in)
     Alfa2 = math.acos(A2_in)
@@ -59,19 +59,19 @@ def IK2(x,y, L1,L2,A,B,C,D):
     Servo1 = min(150,max(0,Servo1))
 
     M = math.sqrt(L1**2+B**2-2*L1*B*math.cos(math.radians(dzetta)))
-    print(f"M: {M}")
+    # print(f"M: {M}")
 
     A1_in = (L1**2+M**2-B**2)/(2*L1*M)
-    A2_in = (A**2+M**2-L1**2)/(2*A*M)
+    A2_in = (A**2+M**2-L3**2)/(2*A*M)
     A1_in = min(1,max(-1,A1_in))
     A2_in = min(1,max(-1,A2_in))
 
-    print(f"A1: {A1_in} . A2: {A2_in}")
+    # print(f"A1: {A1_in} . A2: {A2_in}")
     Alfa1 = math.acos(A1_in)
     Alfa2 = math.acos(A2_in)
 
     Servo2 = Servo1 + math.degrees(Alfa1) + math.degrees(Alfa2)
-    Servo2 = min(150+120,max(120,Servo2))
+    Servo2 = min(120+180,max(120-90,Servo2))
 
     return Servo1, Servo2
 
@@ -107,6 +107,46 @@ def serial_snd(msg):
         ser.write(msg.encode())
     else:
         print(f"SerialSim: {msg}")
+
+def setServos(A,B):
+
+    zeromsg = "<42"
+
+    korekty = []
+    for _ in range(8):
+        korekty.append(0)
+
+    # korekty[2] = 10
+    # korekty[5] = 10
+
+    servos = [0,1,2,3,4,5,6,7]
+
+    for servo in range(8):
+        the_leg = servo // 2
+
+        Alfa = A[the_leg]
+        Beta = B[the_leg] - 120
+        
+        if servo in servos:
+            if servo in [0,2,4,6]:
+                Acor = Beta + korekty[servo]
+                if servo in [0,1,4,5]:
+                    Bcor = 180 - Acor
+                else:
+                    Bcor = Acor
+                zeromsg += f",{int(Bcor)}"
+            else:
+                Acor = Alfa + korekty[servo]
+                if servo in [0,1,4,5]:
+                    Bcor = 180 - Acor
+                else:
+                    Bcor = Acor
+                zeromsg += f",{int(Bcor)}"
+        else:
+            zeromsg +=",-1"
+ 
+    zeromsg +=">"
+    return zeromsg
 
 
 def setLegs(Alfa, Beta, legs=[1,2,3,4]):
@@ -171,7 +211,8 @@ class HelloWorld(tk.Tk):
 
         label = ttk.Label(self, text="FLR IK Simulator v0.2")
         label.config(font=("Arial",20))
-        label.pack()
+        # label.pack()
+        label.grid(row=1,column=1,columnspan=4)
 
         self.W = 600
         self.H = 600
@@ -183,7 +224,8 @@ class HelloWorld(tk.Tk):
         self.kliky = 100
 
         self.c = tk.Canvas(self, bg="blue", width=self.W, height=self.H)
-        self.c.pack()
+        # self.c.pack()
+        self.c.grid(row=2,column=1,columnspan=4)
 
         self.c.bind("<Button-1>", self.update)
         self.c.bind("<B1-Motion>", self.update)
@@ -192,10 +234,12 @@ class HelloWorld(tk.Tk):
 
 
         self.sAlfa = tk.Scale(self, from_=0, to=180, orient=tk.HORIZONTAL, command=self.sliders)
-        self.sAlfa.pack()
+        # self.sAlfa.pack()
+        self.sAlfa.grid(row=3,column=1,columnspan=2)
         self.sAlfa.set(90)
         self.sBeta = tk.Scale(self, from_=0, to=180, orient=tk.HORIZONTAL, command=self.sliders)
-        self.sBeta.pack()
+        # self.sBeta.pack()
+        self.sBeta.grid(row=3,column=3,columnspan=2)
         self.sBeta.set(90)
 
         self.leg1 = tk.IntVar(value=1)
@@ -204,17 +248,16 @@ class HelloWorld(tk.Tk):
         self.leg4 = tk.IntVar(value=1)
 
         L1 = tk.Checkbutton(self, text='Leg 1',variable=self.leg1, onvalue=1, offvalue=0)
-        L1.pack()
+        L1.grid(row=4,column=1)
         L2 = tk.Checkbutton(self, text='Leg 2',variable=self.leg2, onvalue=1, offvalue=0)
-        L2.pack()
+        L2.grid(row=4,column=2)
         L3 = tk.Checkbutton(self, text='Leg 3',variable=self.leg3, onvalue=1, offvalue=0)
-        L3.pack()
+        L3.grid(row=5,column=1)
         L4 = tk.Checkbutton(self, text='Leg 4',variable=self.leg4, onvalue=1, offvalue=0)
-        L4.pack()
+        L4.grid(row=5,column=2)
 
         self.uartBtn = tk.Button(self, text ="UART >>>", command = self.uart)
-        self.uartBtn.pack()
-
+        self.uartBtn.grid(row=6,column=2,columnspan=2)
 
         self.redraw()
 
@@ -226,15 +269,81 @@ class HelloWorld(tk.Tk):
         self.C = 55 * skala
         self.D = 60 * skala
         self.L1 = 90 * skala
+        self.L3 = 70 * skala
         self.L2 = (90-35) * skala
 
-        self.servo_R = 17 * skala 
-        self.servo_space = 60 * skala
-        self.servo_spacer = 60 * skala
+        # self.A = 17 * skala
+        # self.B = 17 * skala
+        # self.C = 55 * skala
+        # self.D = 55 * skala
+        # self.L1 = 90 * skala
+        # self.L2 = 90 * skala
 
+        # tracking the legs x,y
+        self.Lxy = []
 
         # initial draw
-        self.makeLeg(self.sAlfa.get(), self.sBeta.get())
+        legend = self.makeLeg(self.sAlfa.get(), self.sBeta.get(),self.c)
+        self.Lxy.append(legend[:])
+        self.Lxy.append(legend[:])
+        self.Lxy.append(legend[:])
+        self.Lxy.append(legend[:])
+        print(self.Lxy)
+
+
+        self.l1_xp = tk.Button(self, text="(+)", command=lambda: self.legmove(1,1,0))
+        self.l1_xp.grid(row=4,column=7)
+        self.l1_xp = tk.Button(self, text="(-)", command=lambda: self.legmove(1,-1,0))
+        self.l1_xp.grid(row=4,column=5)
+        self.l1_xp = tk.Button(self, text="(+)", command=lambda: self.legmove(1,0,1))
+        self.l1_xp.grid(row=3,column=6)
+        self.l1_xp = tk.Button(self, text="(-)", command=lambda: self.legmove(1,0,-1))
+        self.l1_xp.grid(row=5,column=6)
+
+        self.uart2b = tk.Button(self, text="UART>>>>", command=self.uart2)
+        self.uart2b.grid(row=6, column=6)
+
+    def legmove(self, Leg,dx,dy):
+
+        legs = []
+        step = 5
+
+        if self.leg1.get():
+            legs.append(0)
+        if self.leg2.get():
+            legs.append(1)
+        if self.leg3.get():
+            legs.append(2)
+        if self.leg4.get():
+            legs.append(3) 
+
+        # print(legs)
+        
+        for l in legs:
+            self.Lxy[l][0] += dx * step
+            self.Lxy[l][1] += dy * step
+        
+        # print(f"Lxy: {self.Lxy}")
+        self.uart2()
+    
+    def uart2(self):
+        A = []
+        B = []
+
+        for l in range(4):
+            x,y = self.Lxy[l]
+            x = x - self.zeroX
+            y = y - self.zeroY
+
+            a,b = IK2(-x,y, self.L1,self.L2,self.L3,self.A,self.B,self.C,self.D)
+            A.append(a)
+            B.append(b)
+
+        msg = setServos(A,B)
+        serial_snd(msg)
+
+        self.redraw()
+        legend = self.makeLeg(A[0],B[0]-120,self.c)
 
     def uart(self):
         legs = []
@@ -254,7 +363,7 @@ class HelloWorld(tk.Tk):
         A = self.sAlfa.get()
         B = self.sBeta.get()
         self.redraw()
-        self.makeLeg(A,B)
+        self.makeLeg(A,B,self.c)
         ...
 
     def redraw(self):
@@ -277,23 +386,22 @@ class HelloWorld(tk.Tk):
         self.c_objects.append(tmp)
         ...
 
-    def drawBar(self, x,y,L,alfa,clr="gray",thk=10):
+    def drawBar(self, canv, x,y,L,alfa,clr="gray",thk=10):
         # method to draw the bar
         a = math.radians(alfa - 90)
         dy = L * math.cos(a)
         dx = L * math.sin(a)
         
-        
         yend = y + dy
         xend = x + dx
 
-        tmp = self.c.create_line(x,y,xend,yend, width=thk, fill=clr)
+        tmp = canv.create_line(x,y,xend,yend, width=thk, fill=clr)
         self.c_objects.append(tmp)
 
         return xend, yend
         ...
     
-    def makeLeg(self, Alfa, Beta):
+    def makeLeg(self, Alfa, Beta, canv):
         """
         Function to draw the simulated robo-dog-leg
         """
@@ -302,10 +410,10 @@ class HelloWorld(tk.Tk):
         point_list.append((self.zeroX-self.C,self.zeroY))
 
         # 1st servo arm
-        x0,y0 = self.drawBar(self.zeroX - self.C, self.zeroY,self.A,Alfa,clr="red")
+        x0,y0 = self.drawBar(canv,self.zeroX - self.C, self.zeroY,self.A,Alfa,clr="red")
         point_list.append((x0,y0))
         # 2nd servo arm
-        x1,y1 = self.drawBar(self.zeroX, self.zeroY,self.A,Beta+120,clr="red")
+        x1,y1 = self.drawBar(canv,self.zeroX, self.zeroY,self.A,Beta+120,clr="red")
         point_list.append((x1,y1))
 
         # leg part L1
@@ -316,7 +424,7 @@ class HelloWorld(tk.Tk):
         Beta1 = fi1 + fi2
         Beta1 = math.degrees(Beta1)
 
-        x2,y2 = self.drawBar(self.zeroX, self.zeroY, self.L1, Beta1)
+        x2,y2 = self.drawBar(canv,self.zeroX, self.zeroY, self.L1, Beta1)
         point_list.append((x2,y2))
 
         # leg part 2
@@ -324,16 +432,16 @@ class HelloWorld(tk.Tk):
         w = math.sqrt(in_w)
 
         fii1 = math.acos((self.L1**2+w**2 - self.A**2)/(2*self.L1*w))
-        fii2 = math.acos((self.B**2+w**2-self.L1**2)/(2*self.B*w))
+        fii2 = math.acos((self.B**2+w**2-self.L3**2)/(2*self.B*w))
 
         dzetta = math.degrees(fii1 + fii2)
 
         psi = Beta1 - dzetta 
 
-        xe,ye = self.drawBar(x2,y2,self.L2,psi)
+        xe,ye = self.drawBar(canv,x2,y2,self.L2,psi)
         point_list.append((xe,ye))
 
-        x4,y4 = self.drawBar(x2,y2,self.B,psi+180)
+        x4,y4 = self.drawBar(canv,x2,y2,self.B,psi+180)
         point_list.append((x4,y4))
 
         # calculations for the connection arms
@@ -341,40 +449,25 @@ class HelloWorld(tk.Tk):
         d_angle = math.degrees(d_angle)
 
         d_angle = Beta1 + d_angle
-        x5,y5 = self.drawBar(x0,y0,self.D,d_angle,clr="green")
+        x5,y5 = self.drawBar(canv,x0,y0,self.D,d_angle,clr="green")
         point_list.append((x5,y5))
 
-        w_angle = math.acos((self.B**2+self.L1**2-w**2)/(2*self.B*self.L1))
+        w_angle = math.acos((self.B**2+self.L3**2-w**2)/(2*self.B*self.L3))
         w_angle = math.degrees(w_angle)
 
-        x6,y6 = self.drawBar(x4,y4,self.L1,psi+180+180-w_angle, clr="green")
+        x6,y6 = self.drawBar(canv,x4,y4,self.L3,psi+180+180-w_angle, clr="green")
         point_list.append((x6,y6))
 
         xe = int(xe)
         ye = int(ye)
         print(f"x,y: ({xe},{xe})")
 
-
-
-        # # 1st servo bar
-        # x0,y0 = self.drawBar(x0,y0,self.servo_spacer,180,clr="silver")
-        # point_list.append((x0,y0))
-        # #1st part of leg
-        # x0,y0 = self.drawBar(self.zeroX, self.zeroY,self.A,Alfa+10,clr="green")
-        # point_list.append((x0,y0))
-        # # 2nd part of leg
-        # x,y = self.drawBar(x0,y0,self.A,Beta+120-180,clr="magenta")
-        # point_list.append((x,y))
-        # x0,y0 = self.drawBar(x0,y0,self.servo_R,Beta+120,clr="magenta")
-        # point_list.append((x0,y0))
-        # # 2nd servo bar
-        # x0,y0 = self.drawBar(x0,y0,self.A,Alfa+10-180,clr="silver")
-        # point_list.append((x0,y0))
-
         for pt in point_list:
             x,y = pt
             tmp = self.c.create_oval(x-5,y-5,x+5,y+5, fill="silver")
             self.c_objects.append(tmp)
+
+        return [xe, ye]
 
     def update(self, event):
         if (self.klikx != event.x) or (self.kliky != event.y):
@@ -388,14 +481,17 @@ class HelloWorld(tk.Tk):
             # y = y / (2*self.A)
             # print(x,y)
 
-            A,B = IK2(-x,y, self.L1,self.L2,self.A,self.B,self.C,self.D)
+            A,B = IK2(-x,y, self.L1,self.L2,self.L3,self.A,self.B,self.C,self.D)
 
             print(A, B-120)
 
             self.redraw()
-            self.makeLeg(A,B-120)
+            legend = self.makeLeg(A,B-120,self.c)
             self.sAlfa.set(int(A))
             self.sBeta.set(int(B-120))
+
+            for l in range(4):
+                self.Lxy[l] = legend[:]
         
         ...
 
