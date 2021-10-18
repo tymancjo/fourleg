@@ -103,7 +103,7 @@ void loop() {
     for (uint8_t s = 0; s < servo_count; s++) {
       if  (abs(servos_curr[s] - servos_pos[s]) > 1) {
 
-        servos_curr[s] = (0.9 * servos_curr[s] + 0.1 * servos_pos[s]);
+        servos_curr[s] = (0.95 * servos_curr[s] + 0.05 * servos_pos[s]);
         pwm.setPWM(s, 0, (int)map(servos_curr[s], 0, 180, SERVOMIN, SERVOMAX));
       }
     }
