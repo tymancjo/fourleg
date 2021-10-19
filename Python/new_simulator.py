@@ -120,14 +120,17 @@ def serial_snd(msg):
         print(f"Serial: {msg}")
     else:
         print(f"SerialSim: {msg}")
-    
-    temp_servo = msg[4:-1].split(",")
-    for i,s in enumerate(temp_servo):
-        s = int(s)
-        if s != -1:
-            last_servos[i] = s
 
-    print(last_servos)
+    
+    tmp_command = int(msg[1:3])
+    if tmp_command == 42:
+    
+        temp_servo = msg[4:-1].split(",")
+        for i,s in enumerate(temp_servo):
+            s = int(s)
+            if s != -1:
+                last_servos[i] = s
+        print(last_servos)
 
 def undo_last():
     make_moves(mv=undo_servos)
@@ -524,6 +527,18 @@ class HelloWorld(tk.Tk):
 
         self.kom_btn.append(tk.Button(self,text="pastuch", command=lambda msg=lista_komend: serial_lista(msg, dt=200, n=5,s=-1)))
         self.kom_btn[-1].grid(row=12,column=3)
+
+
+        self.sRamp = tk.Scale(self, from_=50, to=99, orient=tk.HORIZONTAL, command=self.ramp)
+        # self.sBeta.pack()
+        self.sRamp.grid(row=11,column=4,columnspan=2)
+        self.sRamp.set(55)
+
+    def ramp(self, event):
+        rap = int(self.sRamp.get() * 10)
+        rap = 1490 - rap
+        serial_snd(f"<45,{rap},0,0,0,0,0,0,0>")
+
     def legmove(self, Leg,dx,dy):
 
         legs = []

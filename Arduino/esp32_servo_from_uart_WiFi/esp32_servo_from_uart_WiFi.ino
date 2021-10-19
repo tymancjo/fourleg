@@ -102,7 +102,7 @@ int sequence_rep = 1;
 int sequence_crep = 0;
 int sequence_step = 0;
 
-const uint8_t max_sequences = 1;
+const uint8_t max_sequences = 2;
 const uint8_t max_steps = 30;
 const uint8_t max_servos = 8;
 
@@ -125,7 +125,24 @@ int sequences[max_sequences][max_steps][max_servos] =
       {99,92,86,93,105,23,75,147},
       {91,61,99,119,91,51,89,119}
     },
+    {
+      
+      {99,73,91,107,99,63,81,107},
+      {109,83,81,97,109,73,36,136},
+      {109,83,81,97,109,73,66,71},
+      {93,59,97,121,93,49,66,71},
+      {138,71,97,121,93,49,66,71},
+      {101,108,97,121,93,49,66,71},
+      {82,103,97,121,93,49,66,71},
+      {82,103,97,121,135,56,66,71},
+      {82,103,97,121,111,104,66,71},
+      {83,59,107,121,83,49,97,121},
+      {83,59,59,149,83,49,97,121},
+      {83,59,107,121,83,49,97,121}
+    }
 };
+
+// {109,83,81,97,109,73,71,97},
 
 float ramps[max_steps] = {0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.89, 0.95, 0.9, 0.85, 0.85, 0.85};
 uint8_t sequence_steps[max_sequences] = {15};
@@ -176,6 +193,8 @@ void setup()
 
 // the crazy dog step
   sequence_steps[0] = 15;
+  sequence_steps[1] = 12;
+  
 }
 
 
@@ -242,7 +261,13 @@ void loop() {
 
     if (command == 45){
       // option to change the ramp
-      ramp = param[0] / 100.0;
+      ramp = param[0] / 1000.0;
+      Serial.println(ramp);
+      }
+
+    if (command == 46){
+      // playing the sequence
+      start_sequence(param[0], param[1]);
       }
     
   }
@@ -404,7 +429,7 @@ String SendHTML(){
   
   String ptr = "<!DOCTYPE html> <html>\n";
   ptr +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  ptr +="<title>LED Control</title>\n";
+  ptr +="<title>Aron Control</title>\n";
   ptr +="<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
   ptr +="body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;} h3 {color: #444444;margin-bottom: 50px;}\n";
   ptr +=".button {display: block;width: 80px;background-color: #3498db;border: none;color: white;padding: 13px 30px;text-decoration: none;font-size: 25px;margin: 0px auto 35px;cursor: pointer;border-radius: 4px;}\n";
@@ -416,37 +441,68 @@ String SendHTML(){
   ptr +="</style>\n";
   ptr +="</head>\n";
   ptr +="<body>\n";
-  ptr +="<h1>ESP32 Web Server</h1>\n";
+  ptr +="<h1>Aron Web Server</h1>\n";
   ptr +="<h3>Using Access Point(AP) Mode</h3>\n";
 
+  ptr += "<h3>Poses</h3>";
+  
   for (int s=0; s < total_poses; s++){
-    ptr += "<p><a href=/p?p=";
+    ptr += "<form>";
+    ptr += "<input type=hidden id=p name=p value=";
     ptr += s;
     ptr += ">";
+    ptr += "<p><button type=submit formaction=/p>";
     ptr += s;
     ptr += " ";
     ptr += pose_names[s];
-    ptr += " </a></p>";
-    
+    ptr += " </button></p>";
+    ptr += "</form>"; 
    }
 
+   
+
   ptr += "<h3>Sequences</h3>";
+  
 
   for (int s=0; s < max_sequences; s++){
-    ptr += "<p><a href=/s?k=1&s=";
+//    ptr += "<p><a href=/s?k=1&s=";
+//    ptr += s;
+//    ptr += ">";
+//    ptr += s;
+//    ptr += " :sequence";
+//    ptr += "</a></p>";
+
+    ptr += "<form>";
+    ptr += "<input type=hidden id=p name=k value=1>";
+    ptr += "<input type=hidden id=p name=s value=";
     ptr += s;
     ptr += ">";
+    ptr += "<p><button type=submit formaction=/s>";
     ptr += s;
     ptr += " :sequence";
-    ptr += "</a></p>";
+    ptr += " </button></p>";
+    ptr += "</form>"; 
     }
+
+    
     for (int s=0; s < max_sequences; s++){
-    ptr += "<p><a href=/s?k=5&s=";
+//    ptr += "<p><a href=/s?k=5&s=";
+//    ptr += s;
+//    ptr += ">";
+//    ptr += s;
+//    ptr += " :sequence x5";
+//    ptr += "</a></p>";
+    ptr += "<form>";
+    ptr += "<input type=hidden id=p name=k value=5>";
+    ptr += "<input type=hidden id=p name=s value=";
     ptr += s;
     ptr += ">";
+    ptr += "<p><button type=submit formaction=/s>";
     ptr += s;
     ptr += " :sequence x5";
-    ptr += "</a></p>";
+    ptr += " </button></p>";
+    ptr += "</form>"; 
+    
     }
    
   ptr +="</body>\n";
@@ -480,5 +536,25 @@ void handle_sequence(){
       Serial.println(sequence_nr);
       server.send(200, "text/html", SendHTML());
     }
+  
+  }
+
+
+void start_sequence(int s, int k)
+  {
+  if (k <= 0 || k > 20){
+    k = 1;
+    }
+    
+  if (s > -1 && s < max_sequences && !in_sequence){
+      // if recieved data makes sense
+      sequence_nr = s;
+      sequence_rep = k;
+      in_sequence = true;
+      Serial.print("Start sequence ");
+      Serial.println(sequence_nr);
+      
+    }
+  
   
   }
