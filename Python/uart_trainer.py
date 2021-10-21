@@ -252,8 +252,8 @@ def setLegs(Alfa, Beta, legs=[1,2,3,4]):
     for _ in range(8):
         korekty.append(0)
 
-    korekty[2] = 10
-    korekty[5] = 10
+    # korekty[2] = 10
+    # korekty[5] = 10
 
     for servo in range(8):
         if servo in servos:
@@ -283,41 +283,63 @@ class HelloWorld(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.geometry("1240x750")
+        self.geometry("1500x750")
         self.title("FLR Leg Simulator")
 
         label = ttk.Label(self, text="FLR IK Simulator v0.2")
         label.config(font=("Arial",20))
-        # label.pack()
         label.grid(row=1,column=1,columnspan=4)
 
-        self.W = 600
-        self.H = 600
+        self.W = 500
+        self.H = 400
 
-        self.zeroX = 350
-        self.zeroY = 100
+        self.zeroX = 300
+        self.zeroY = 50
 
         self.klikx = 350
         self.kliky = 100
 
         self.c = tk.Canvas(self, bg="blue", width=self.W, height=self.H)
         # self.c.pack()
-        self.c.grid(row=2,column=10,columnspan=4, rowspan=20)
+        self.c.grid(row=2,column=10,columnspan=5, rowspan=20)
 
         self.c.bind("<Button-1>", self.update)
         self.c.bind("<B1-Motion>", self.update)
 
         self.c_objects = []
 
-
         self.sAlfa = tk.Scale(self, from_=0, to=180, orient=tk.HORIZONTAL, command=self.sliders)
-        # self.sAlfa.pack()
-        self.sAlfa.grid(row=3,column=1,columnspan=2)
+        self.sAlfa.grid(row=23,column=10,columnspan=2)
         self.sAlfa.set(90)
+
         self.sBeta = tk.Scale(self, from_=0, to=180, orient=tk.HORIZONTAL, command=self.sliders)
-        # self.sBeta.pack()
-        self.sBeta.grid(row=3,column=3,columnspan=2)
+        self.sBeta.grid(row=23,column=12,columnspan=2)
         self.sBeta.set(90)
+
+        self.sRamp = tk.Scale(self, from_=50, to=99, orient=tk.HORIZONTAL, command=self.ramp)
+        self.sRamp.grid(row=28,column=10,columnspan=2)
+        self.sRamp.set(55)
+
+        self.uartBtn = tk.Button(self, text ="UART>>", command = self.uart)
+        self.uartBtn.grid(row=23,column=14,columnspan=1)
+
+        self.uartBtn = tk.Button(self, text ="Undo Lst", command =undo_last)
+        self.uartBtn.grid(row=24,column=14,columnspan=1)
+
+        self.uartBtn = tk.Button(self, text ="Save>>", command =lambda: self.save_moves())
+        self.uartBtn.grid(row=26,column=14,columnspan=1)
+
+        self.uartBtn = tk.Button(self, text ="Del.Last", command =del_last)
+        self.uartBtn.grid(row=27,column=14,columnspan=1)
+
+        self.uartBtn = tk.Button(self, text ="Show", command =lambda: print(moves))
+        self.uartBtn.grid(row=29,column=14,columnspan=1)
+
+        self.uartBtn = tk.Button(self, text ="Print", command =print_moves)
+        self.uartBtn.grid(row=30,column=14,columnspan=1)
+
+        self.uartBtn = tk.Button(self, text ="Make!", command =make_moves)
+        self.uartBtn.grid(row=32,column=14,columnspan=1)
 
         self.leg1 = tk.IntVar(value=1)
         self.leg2 = tk.IntVar(value=1)
@@ -325,34 +347,30 @@ class HelloWorld(tk.Tk):
         self.leg4 = tk.IntVar(value=1)
 
         L1 = tk.Checkbutton(self, text='Leg 1',variable=self.leg1, onvalue=1, offvalue=0)
-        L1.grid(row=4,column=1)
+        L1.grid(row=24,column=11)
         L2 = tk.Checkbutton(self, text='Leg 2',variable=self.leg2, onvalue=1, offvalue=0)
-        L2.grid(row=4,column=2)
+        L2.grid(row=24,column=12)
         L3 = tk.Checkbutton(self, text='Leg 3',variable=self.leg3, onvalue=1, offvalue=0)
-        L3.grid(row=5,column=1)
+        L3.grid(row=25,column=11)
         L4 = tk.Checkbutton(self, text='Leg 4',variable=self.leg4, onvalue=1, offvalue=0)
-        L4.grid(row=5,column=2)
+        L4.grid(row=25,column=12)
 
-        self.uartBtn = tk.Button(self, text ="UART >>>", command = self.uart)
-        self.uartBtn.grid(row=6,column=2,columnspan=1)
+        label = ttk.Label(self, text="recall last to graph")
+        label.config(font=("Arial",14))
+        label.grid(row=29,column=10,columnspan=2)
 
-        self.uartBtn = tk.Button(self, text ="Save>>", command =lambda: moves.append(last_servos[:]))
-        self.uartBtn.grid(row=6,column=3,columnspan=1)
+        self.Btn = tk.Button(self, text =" L1 ", command=lambda l=1: self.recall_to_graph(l))
+        self.Btn.grid(row=30,column=10,columnspan=1)
 
-        self.uartBtn = tk.Button(self, text ="Show", command =lambda: print(moves))
-        self.uartBtn.grid(row=6,column=4,columnspan=1)
+        self.Btn = tk.Button(self, text =" L2 ", command=lambda l=2: self.recall_to_graph(l))
+        self.Btn.grid(row=30,column=11,columnspan=1)
 
-        self.uartBtn = tk.Button(self, text ="Del.Last", command =del_last)
-        self.uartBtn.grid(row=6,column=5,columnspan=1)
+        self.Btn = tk.Button(self, text =" L3 ", command=lambda l=3: self.recall_to_graph(l))
+        self.Btn.grid(row=31,column=10,columnspan=1)
 
-        self.uartBtn = tk.Button(self, text ="Make!", command =make_moves)
-        self.uartBtn.grid(row=7,column=3,columnspan=1)
-
-        self.uartBtn = tk.Button(self, text ="Print", command =print_moves)
-        self.uartBtn.grid(row=7,column=4,columnspan=1)
-
-        self.uartBtn = tk.Button(self, text ="Undo Lst", command =undo_last)
-        self.uartBtn.grid(row=7,column=5,columnspan=1)
+        self.Btn = tk.Button(self, text =" L4 ", command=lambda l=4: self.recall_to_graph(l))
+        self.Btn.grid(row=31,column=11,columnspan=1)
+        
         self.redraw()
 
         # base data for the leg
@@ -365,13 +383,6 @@ class HelloWorld(tk.Tk):
         self.L1 = 90 * skala
         self.L3 = 73 * skala
         self.L2 = 80 * skala
-
-        # self.A = 17 * skala
-        # self.B = 17 * skala
-        # self.C = 55 * skala
-        # self.D = 55 * skala
-        # self.L1 = 90 * skala
-        # self.L2 = 90 * skala
 
         # tracking the legs x,y
         self.Lxy = []
@@ -546,11 +557,58 @@ class HelloWorld(tk.Tk):
         self.kom_btn.append(tk.Button(self,text="drunk master", command=lambda msg=lista_komend: serial_lista(msg, dt=200, n=1,s=1)))
         self.kom_btn[-1].grid(row=12,column=3)
 
+        self.buttons = []
 
-        self.sRamp = tk.Scale(self, from_=50, to=99, orient=tk.HORIZONTAL, command=self.ramp)
-        # self.sBeta.pack()
-        self.sRamp.grid(row=11,column=4,columnspan=2)
-        self.sRamp.set(55)
+    def save_moves(self):
+        moves.append(last_servos[:])
+        self.update_buttons()
+
+    def update_buttons(self):
+        if len(self.buttons):
+            for b in self.buttons:
+                b.destroy()
+        
+        if len(moves):
+            for i,move in enumerate(moves):
+                for j,m in enumerate(move[::2]):
+                    self.buttons.append(tk.Button(self,text=f"L{j+1} {move[2*j],move[2*j+1]}",command=lambda v=(move[2*j],move[2*j+1]): self.redrawFromAB(v[0],v[1])))
+                    self.buttons[-1].grid(column=16+j, row=i+1)
+                self.buttons.append(tk.Button(self,text=f"X",command=lambda v=i: self.del_move(v)))
+                self.buttons[-1].grid(column=16+4, row=i+1)
+            ...
+        ...
+    
+    def redrawFromAB(self, A, B):
+        self.redraw()
+        self.makeLeg(A,B,self.c)
+        self.sAlfa.set(A)
+        self.sBeta.set(B)
+        ...
+
+    def del_move(self, i):
+        if len(moves) > i:
+            del moves[i]
+            self.update_buttons()
+
+        ...
+
+
+    def recall_to_graph(self, l):
+        self.redraw();
+
+        s1 = (l-1)*2
+        s2 = s1 + 1
+
+        A = last_servos[s2]
+        B = last_servos[s1]
+
+        if s1 in [0,1,4,5]:
+            A = 180 - A
+
+        if s2 in [0,1,4,5]:
+            B = 180 - B
+
+        self.makeLeg(A,B,self.c)
 
     def ramp(self, event):
         rap = int(self.sRamp.get() * 10)
@@ -662,6 +720,7 @@ class HelloWorld(tk.Tk):
         """
         Function to draw the simulated robo-dog-leg
         """
+        print(f"A: {Alfa} B: {Beta}")
         point_list = []
         point_list.append((self.zeroX,self.zeroY))
         point_list.append((self.zeroX-self.C,self.zeroY))
@@ -688,8 +747,13 @@ class HelloWorld(tk.Tk):
         in_w = self.L1**2 + self.A**2 -2*self.L1*self.A*math.cos(math.radians(Beta+120)-math.radians(Beta1))
         w = math.sqrt(in_w)
 
-        fii1 = math.acos((self.L1**2+w**2 - self.A**2)/(2*self.L1*w))
-        fii2 = math.acos((self.B**2+w**2-self.L3**2)/(2*self.B*w))
+        in_1 = (self.L1**2+w**2 - self.A**2)/(2*self.L1*w)
+        in_1 = min(1,max(-1,in_1))
+        fii1 = math.acos(in_1)
+
+        in_1 = (self.B**2+w**2-self.L3**2)/(2*self.B*w)
+        in_1 = min(1,max(-1,in_1))
+        fii2 = math.acos(in_1)
 
         dzetta = math.degrees(fii1 + fii2)
 
@@ -709,7 +773,9 @@ class HelloWorld(tk.Tk):
         x5,y5 = self.drawBar(canv,x0,y0,self.D,d_angle,clr="green")
         point_list.append((x5,y5))
 
-        w_angle = math.acos((self.B**2+self.L3**2-w**2)/(2*self.B*self.L3))
+        in_1 = (self.B**2+self.L3**2-w**2)/(2*self.B*self.L3)
+        in_1 = min(1,max(-1,in_1))
+        w_angle = math.acos(in_1)
         w_angle = math.degrees(w_angle)
 
         x6,y6 = self.drawBar(canv,x4,y4,self.L3,psi+180+180-w_angle, clr="green")
