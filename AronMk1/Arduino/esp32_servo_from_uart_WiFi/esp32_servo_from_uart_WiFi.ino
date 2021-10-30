@@ -31,6 +31,10 @@ IPAddress subnet(255,255,255,0);
 // Set web server port number to 80
 WebServer server(80);
 
+// for the second uart
+#define RXD2 13
+#define TXD2 12
+
 
 // kicking of the pwm module definition
 // called this way, it uses the default address 0x40
@@ -102,7 +106,7 @@ int sequence_rep = 1;
 int sequence_crep = 0;
 int sequence_step = 0;
 
-const uint8_t max_sequences = 2;
+const uint8_t max_sequences = 3;
 const uint8_t max_steps = 30;
 const uint8_t max_servos = 8;
 
@@ -145,6 +149,10 @@ int sequences[max_sequences][max_steps][max_servos] =
       {83,59,107,121,83,49,97,121},
       {83,59,59,149,83,49,97,121},
       {83,59,107,121,83,49,97,121}
+    },
+    {
+      {89,64,106,99,74,81,91,116},
+      {74,81,91,116,89,64,106,99},
     }
 };
 
@@ -157,6 +165,7 @@ void setup()
 {
   // kicking off serial
   Serial.begin(115200);
+  Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
 
   // Servos reset
   pwm.begin();
@@ -189,6 +198,8 @@ void setup()
   server.on("/p", handle_pose);
 
   server.on("/s", handle_sequence);
+
+  server.on("/r", handle_ramp);
     
   server.onNotFound(handle_NotFound);
   
@@ -200,6 +211,7 @@ void setup()
 // the crazy dog step
   sequence_steps[0] = 16;
   sequence_steps[1] = 12;
+  sequence_steps[2] = 2;
 
   for (int i=0; i < max_steps; i++){
     ramps[i] = 0.85;
@@ -217,6 +229,11 @@ void loop() {
 
   // grabstuff from serial
   recvWithStartEndMarkers();
+  if (!newData && !fakeData){
+    // grabbing from the second serial 
+    recvWithStartEndMarkers_s2();
+//    Serial.println("S2 check...");
+    }
 
   // if we have some new data...
   if (newData || fakeData)
@@ -302,7 +319,7 @@ void loop() {
     // if we are in the sequence we are making the next step when previous is done:
     Serial.print("Seq active ");
     Serial.println(sequence_nr);
-    ramp = 0.85;
+//    ramp = 0.85;
     if (sequence_step < sequence_steps[sequence_nr]-1) {
       // we still have some steps to do
       sequence_step++; // taking the step count up
@@ -310,7 +327,7 @@ void loop() {
       Serial.print(sequence_step);
       Serial.print(" of ");
       Serial.println(sequence_steps[sequence_nr]);
-      ramp = ramps[sequence_step];
+//      ramp = ramps[sequence_step];
       
       for (int s=0; s<max_servos; s++){
         // reading the servos positions from sequence step
@@ -329,7 +346,7 @@ void loop() {
           }
         else {
           in_sequence = false;
-          ramp = 0.95;
+//          ramp = 0.95;
           sequence_crep = 0;
           Serial.println("Seq.Done");
           }
@@ -386,6 +403,50 @@ void loop() {
       }
     }
   }
+
+
+void recvWithStartEndMarkers_s2()
+  {
+    //  Read data in this style <C, 1, 2, 3, 4, 5, 6, 7, 8>
+    static boolean recvInProgress = false;
+    static byte ndx = 0;
+    char startMarker = '<';
+    char endMarker = '>';
+    char rc;
+
+    while (Serial2.available() > 0 && newData == false)
+    {
+      Serial.print(".");
+      rc = Serial2.read();
+
+      if (recvInProgress == true)
+      {
+        if (rc != endMarker)
+        {
+          receivedChars[ndx] = rc;
+          ndx++;
+          if (ndx >= numChars)
+          {
+            ndx = numChars - 1;
+          }
+        }
+        else
+        {
+          receivedChars[ndx] = '\0'; // terminate the string
+          recvInProgress = false;
+          ndx = 0;
+          newData = true;
+        }
+      }
+
+      else if (rc == startMarker)
+      {
+        recvInProgress = true;
+      }
+    }
+  }
+
+
 
   void parseData()
   { // split the data into its parts
@@ -473,47 +534,84 @@ String SendHTML(){
 
   ptr += "<h3>Sequences</h3>";
   
-
+  ptr += "<table>";
   for (int s=0; s < max_sequences; s++){
-//    ptr += "<p><a href=/s?k=1&s=";
-//    ptr += s;
-//    ptr += ">";
-//    ptr += s;
-//    ptr += " :sequence";
-//    ptr += "</a></p>";
-
+    ptr += "<tr>";
+    for (int n = 1; n < 20 ; n+=6){
+    ptr += "<td>";
     ptr += "<form>";
-    ptr += "<input type=hidden id=p name=k value=1>";
+    ptr += "<input type=hidden id=p name=k value=";
+    ptr += n;
+    ptr += ">";
     ptr += "<input type=hidden id=p name=s value=";
     ptr += s;
     ptr += ">";
     ptr += "<p><button type=submit formaction=/s>";
+    ptr += n;
+    ptr += "x seq ";
     ptr += s;
-    ptr += " :sequence";
     ptr += " </button></p>";
-    ptr += "</form>"; 
+    ptr += "</form>";
+    ptr += "</td>";
+    
+    }
+    
+    ptr += "</tr>"; 
     }
 
+  ptr += "</table>";
     
-    for (int s=0; s < max_sequences; s++){
-//    ptr += "<p><a href=/s?k=5&s=";
+//    for (int s=0; s < max_sequences; s++){
+//    ptr += "<form>";
+//    ptr += "<input type=hidden id=p name=k value=5>";
+//    ptr += "<input type=hidden id=p name=s value=";
 //    ptr += s;
 //    ptr += ">";
-//    ptr += seq_names[s];
-//    ptr += " x5";
-//    ptr += "</a></p>";
-    ptr += "<form>";
-    ptr += "<input type=hidden id=p name=k value=5>";
-    ptr += "<input type=hidden id=p name=s value=";
-    ptr += s;
-    ptr += ">";
-    ptr += "<p><button type=submit formaction=/s>";
-    ptr += s;
-    ptr += " :sequence x5";
-    ptr += " </button></p>";
-    ptr += "</form>"; 
-    
-    }
+//    ptr += "<p><button type=submit formaction=/s>";
+//    ptr += s;
+//    ptr += " :sequence x5";
+//    ptr += " </button></p>";
+//    ptr += "</form>"; 
+//    }
+//
+//  ptr += "</tc><tc>";
+//  
+//    for (int s=0; s < max_sequences; s++){
+//    ptr += "<form>";
+//    ptr += "<input type=hidden id=p name=k value=19>";
+//    ptr += "<input type=hidden id=p name=s value=";
+//    ptr += s;
+//    ptr += ">";
+//    ptr += "<p><button type=submit formaction=/s>";
+//    ptr += s;
+//    ptr += " :sequence x20";
+//    ptr += " </button></p>";
+//    ptr += "</form>";   
+//    }
+//
+//  ptr += "</tc></tr></table>";
+
+  ptr += "<h3>Speeds</h3>";
+  ptr += "<p> current ramp: ";
+  ptr += ramp;
+  ptr += "</p>";
+  ptr += "<form>";
+  ptr += "<input type=hidden id=p name=r value=500>";
+  ptr += "<p><button type=submit formaction=/r> Fast</button></p></form>";
+
+  ptr += "<form>";
+  ptr += "<input type=hidden id=p name=r value=700>";
+  ptr += "<p><button type=submit formaction=/r>Med</button></p></form>";
+
+  ptr += "<form>";
+  ptr += "<input type=hidden id=p name=r value=800>";
+  ptr += "<p><button type=submit formaction=/r>LowMed</button></p></form>";
+
+  ptr += "<form>";
+  ptr += "<input type=hidden id=p name=r value=950>";
+  ptr += "<p><button type=submit formaction=/r>Norm</button></p></form>";
+  
+  
    
   ptr +="</body>\n";
   ptr +="</html>\n";
@@ -526,6 +624,14 @@ void handle_pose(){
   command = 44;
   param[0] = pose;
   fakeData = true;
+  server.send(200, "text/html", SendHTML());
+}
+
+void handle_ramp(){
+  int r = server.arg("r").toInt();
+  if (r > 200 && r < 990){
+    ramp = r / 1000.0;
+  }
   server.send(200, "text/html", SendHTML());
 }
 
