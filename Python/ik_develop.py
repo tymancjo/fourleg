@@ -5,12 +5,16 @@
 
 import math
 import matplotlib.pyplot as plt
+import numpy as np
 
 def my_print(input_msg):
     if debug:
         print(input_msg)
     else:
         ...
+
+def limit(x):
+    return min(max(-1,x),1)
 
 def leg_IK_mk2(point, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=35,L=70, be_precise=False):
     """
@@ -47,10 +51,12 @@ def leg_IK_mk2(point, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=35
         dzetta = math.atan2(x,y)
         my_print(f"dzetta={math.degrees(dzetta)}")
 
-        Phi = math.acos((H**2+N**2-h**2)/(2*H*N))
+        Phi = math.acos(limit((H**2+N**2-h**2)/(2*H*N)))
         my_print(math.degrees(Phi))
 
         in_0 = (H**2+h**2-N**2)/(2*H*h)
+        # safety limiting
+        in_0 = limit(in_0)
         Psi = math.acos(in_0)
         my_print(f"Psi= {math.degrees(Psi)}")
 
@@ -63,7 +69,11 @@ def leg_IK_mk2(point, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=35
 
         in_1 = (A**2+i2-G**2)/(2*A*i)
         my_print(f"{in_1=}")
+        in_1 = limit(in_1)
+
         in_2 = (k**2+i2-F**2)/(2*k*i)
+        in_2 = limit(in_2)
+
         k1 = math.acos(in_1)
         k2 = math.acos(in_2)
         k3 = math.atan2(E,C)
@@ -85,7 +95,7 @@ def leg_IK_mk2(point, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=35
         R2 = p2 + H**2 -2*p*H*math.cos(eta)
         R = math.sqrt( R2 )
         my_print(f"{R=}")
-        k6 = math.acos((H**2+R2 - p2)/(2*H*R))
+        k6 = math.acos(limit((H**2+R2 - p2)/(2*H*R)))
         my_print(f"k6={math.degrees(k6)}")
 
         k2 = math.pi - Phi
@@ -99,24 +109,20 @@ def leg_IK_mk2(point, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=35
         Hy = E + H*math.cos(Psi+dzetta)
         my_print(f"{Hy=}")
 
-        kd   = math.acos((Q2+B**2-L**2)/(2*Q*B))
+        kd   = math.acos(limit((Q2+B**2-L**2)/(2*Q*B)))
         my_print(f"k.={math.degrees(kd)}")
-        kdd  = math.acos((Q2+R2-M**2)/(2*Q*R))
+        kdd  = math.acos(limit((Q2+R2-M**2)/(2*Q*R)))
         my_print(f"k..={math.degrees(kdd)}")
-        kddd = math.acos((Hy)/(R))
+        kddd = math.acos(limit((Hy)/(R)))
         my_print(f"k...={math.degrees(kddd)}")
 
         Beta = kd + kdd + kddd + math.pi/2
-
-
-
-
-
     else:
         return False
     
     if not be_precise:
         return int(math.degrees(Alpha0)),int(math.degrees(Beta)), int(math.degrees(Alpha)), int(math.degrees(Phi))
+
     return (math.degrees(Alpha0)),(math.degrees(Beta)), (math.degrees(Alpha)), (math.degrees(Phi))
 
 
@@ -125,27 +131,61 @@ def leg_IK_mk2(point, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=35
 debug = 0
 
 # print(leg_IK_mk2((27.43,137.44)))
-print(leg_IK_mk2((-33.3,124.6)))
-print(leg_IK_mk2((10,130)))
-print(leg_IK_mk2((0,130)))
+print(leg_IK_mk2((-87,95)))
 
-x = [k for k in range(50,-50,-5)]
-y = [120 + 10 * math.sin(math.radians(4*k)) for k in x]
+x = [k for k in range(100,-100,-1)]
+y = [k for k in range(50,150,1)]
 
-print(x, y)
-alfa = []
-beta = []
+# creating the pre-calculated solution matrix
+the_array_of_Alpha = []
+the_array_of_Beta = []
+for yy in y:
+    the_row_A = []
+    the_row_B = []
+    for xx in x:
+        a,b,_,_ = leg_IK_mk2((xx,yy))
+        the_row_A.append(a) 
+        the_row_B.append(b)
+    the_array_of_Alpha.append(the_row_A)
+    the_array_of_Beta.append(the_row_B)
 
-for xx,yy in zip(x,y):
-    a,b,c,d = leg_IK_mk2((xx,yy))
-    alfa.append(a)
-    beta.append(b-(90+30))
+Alpha = np.array(the_array_of_Alpha)
+Beta = np.array(the_array_of_Beta)
+
+print(f"Size: {Alpha.shape, Beta.shape}")
+X, Y = np.meshgrid(x, y) 
+
+# Create the figure
+fig = plt.figure()
+
+# Add an axes
+ax1 = fig.add_subplot(121,projection='3d')
+ax2 = fig.add_subplot(122,projection='3d')
+
+fig.suptitle("Aron Mk2 IK model solutions space", fontsize=16)
+
+# plot the surface
+ax1.plot_surface(X, Y, Alpha, alpha=1)
+ax2.plot_surface(X, Y, Beta, alpha=1)
+
+ax1.set_xlabel("x [mm]")
+ax1.set_ylabel("y [mm]")
+ax1.set_zlabel("Servo1 [deg]")
+ax1.set_title("Servo 1")
+
+ax2.set_xlabel("x [mm]")
+ax2.set_ylabel("y [mm]")
+ax2.set_zlabel("Servo2 [deg]")
+ax2.set_title("Servo 2")
+
+
+plt.show()
 
 # fig1 = plt.figure()
-plt.plot(x,alfa)
-plt.plot(x,beta)
-plt.plot(x,y)
-plt.xlabel("x [mm]")
-plt.ylabel("Angle [deg]")
-plt.grid()
-plt.show()
+# plt.plot(x,alfa)
+# plt.plot(x,beta)
+# plt.plot(x,y)
+# plt.xlabel("x [mm]")
+# plt.ylabel("Angle [deg]")
+# plt.grid()
+# plt.show()
