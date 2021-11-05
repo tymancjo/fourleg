@@ -326,10 +326,14 @@ void loop() {
 
     for (uint8_t s = 0; s < servo_count; s++) {
       if  (abs(servos_curr[s] - servos_pos[s]) > 1) {
+        
         // if need to move more then 1 degree
         move_done = false; // since we move we are not done yet...
+        
         servos_curr[s] = (ramp * servos_curr[s] + (1-ramp) * servos_pos[s]);
+        
         pwm.setPWM(s, 0, (int)map(servos_curr[s], 0, 180, SERVOMIN, SERVOMAX));
+      
       }
     }
   
