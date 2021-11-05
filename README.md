@@ -1,4 +1,19 @@
 # FLR „Aron”
+
+# Mk2 is on the way
+Currently a new version is in the developement, hence all the code and data for the mk1 were moved ot the mk1 folder. 
+
+The info about the mk2 will be updated here soon.
+For the moment please take a look at the vide playlist:
+[YouTube Playlist](https://www.youtube.com/watch?v=CJRxDc_nvHY&list=PL9g9iwA2sCQyebAMLQ3WOS7w4_cqAUxdq)
+
+![Aron Mk2](doc/img/mk2.png)
+
+#
+#
+
+
+# Original info about Aron Mk1
 ## Intro
 FLR as Four Leg Robot - is a hobby project aimed for experimenting with the idea of simple and affordable four leg robot build. It’s a playground for self study of the basic ideas of kinetic, stability and more.
 
