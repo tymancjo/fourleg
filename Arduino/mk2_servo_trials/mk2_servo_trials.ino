@@ -59,19 +59,20 @@ unsigned long last_step = millis();
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Aroin mk2 Servo test!");
+  Serial.println("Aron mk2 Servo test!");
+  pinMode(LEDPIN, OUTPUT);
 
-   // Setup callbacks for SerialCommand command
-  sCmd.addCommand("c",  processCommand);  // Converts two arguments to integers and echos them back
-  sCmd.addCommand("test", runTest);
-  sCmd.addCommand("h", makeHoming);
-  sCmd.addCommand("ramp", setRamp);
-  sCmd.addCommand("s", setServo); // set a single servo command
-  sCmd.addCommand("d", setServoDelta); // set a single servo by delta angle command
-  sCmd.addCommand("ad", setAllServosDelta); // move all by individual deltas
-  sCmd.addCommand("show", showAngles); // displaying back the current settings
-  sCmd.addCommand("swing", makeSwing); // making a swing to the side
-  sCmd.addCommand("twist", makeTwist); // making a twist to the side
+  // Setup callbacks for SerialCommand command
+  sCmd.addCommand("c",  processCommand);      // Converts two arguments to integers and echos them back
+  sCmd.addCommand("test", runTest);           // run the simple test sequence - just moves all servos in loop.
+  sCmd.addCommand("h", makeHoming);           // ressetting the servos to initial position
+  sCmd.addCommand("ramp", setRamp);           // set up the ramp value input as 990 gives 0.99 ramp etc.
+  sCmd.addCommand("s", setServo);             // set a single servo command
+  sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
+  sCmd.addCommand("ad", setAllServosDelta);   // move all by individual deltas
+  sCmd.addCommand("show", showAngles);        // displaying back the current settings
+  sCmd.addCommand("swing", makeSwing);        // making a swing to the side
+  sCmd.addCommand("twist", makeTwist);        // making a twist to the side
   
   sCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
   
@@ -111,8 +112,16 @@ void setup() {
   pwm2.setOscillatorFrequency(27000000);
   pwm2.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
 
-  delay(5000);
-  Serial.println("Starting up...");
+  Serial.print("Starting up");
+  for (int k=0; k < 21; k++){
+    digitalWrite(LEDPIN, HIGH);
+    Serial.print(".");
+    delay(400 - k*20);
+    digitalWrite(LEDPIN, LOW);
+    delay(400 - k*20);
+  }
+  Serial.println();
+  digitalWrite(LEDPIN, HIGH);
 }
 
 int test_step = 0;
