@@ -7,15 +7,22 @@
  */
 
 #include "SerialCommand.h"
+SerialCommand sCmd;     // The SerialCommand object
 
-SerialCommand sCmd;     // The demo SerialCommand object
+#define LEDPIN 2
+
+
 
 void setup() {
   // put your setup code here, to run once:
+  pinMode(LEDPIN, OUTPUT);
+  
   Serial.begin(115200);
 
   // Setup callbacks for SerialCommand command
   sCmd.addCommand("c",  processCommand2);  // Converts two arguments to integers and echos them back
+  sCmd.addCommand("ledon", ledOn);
+  sCmd.addCommand("ledoff", ledOff);
   sCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
   
   
@@ -33,6 +40,14 @@ void loop() {
 
 
 // Functions
+
+void ledOn(){
+  digitalWrite(LEDPIN, HIGH);
+}
+
+void ledOff(){
+  digitalWrite(LEDPIN, LOW);
+}
 
 void processCommand2() {
   // protype function to recieve many arguments (up to 20 here)

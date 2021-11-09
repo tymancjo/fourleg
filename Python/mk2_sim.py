@@ -216,6 +216,7 @@ def leg_DK_mk2(angles, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=3
 def serial_snd(msg):
     global undo_servos
     undo_servos[0] = last_servos[:]
+    msg += "\n\r"
 
     if is_serial:
         ser.write(msg.encode())
@@ -224,15 +225,15 @@ def serial_snd(msg):
         print(f"SerialSim: {msg}")
 
     
-    tmp_command = int(msg[1:3])
-    if tmp_command == 42:
+    # tmp_command = int(msg[1:3])
+    # if tmp_command == 42:
     
-        temp_servo = msg[4:-1].split(",")
-        for i,s in enumerate(temp_servo):
-            s = int(s)
-            if s != -1:
-                last_servos[i] = s
-        print(last_servos)
+    #     temp_servo = msg[4:-1].split(",")
+    #     for i,s in enumerate(temp_servo):
+    #         s = int(s)
+    #         if s != -1:
+    #             last_servos[i] = s
+    #     print(last_servos)
 
 def undo_last():
     make_moves(mv=undo_servos)
@@ -419,41 +420,17 @@ class HelloWorld(tk.Tk):
         self.sBeta.grid(row=22,column=12,columnspan=2)
         self.sBeta.set(90)
 
-        # self.leg1 = tk.IntVar(value=1)
-        # self.leg2 = tk.IntVar(value=1)
-        # self.leg3 = tk.IntVar(value=1)
-        # self.leg4 = tk.IntVar(value=1)
+        self.sSwing = tk.Scale(self, from_=-50, to=50, orient=tk.HORIZONTAL, command=self.swing)
+        self.sSwing.grid(row=4,column=1,columnspan=5)
+        self.sSwing.set(0)
 
-        # L1 = tk.Checkbutton(self, text='Leg 1',variable=self.leg1, onvalue=1, offvalue=0)
-        # L1.grid(row=4,column=1)
-        # L2 = tk.Checkbutton(self, text='Leg 2',variable=self.leg2, onvalue=1, offvalue=0)
-        # L2.grid(row=4,column=2)
-        # L3 = tk.Checkbutton(self, text='Leg 3',variable=self.leg3, onvalue=1, offvalue=0)
-        # L3.grid(row=5,column=1)
-        # L4 = tk.Checkbutton(self, text='Leg 4',variable=self.leg4, onvalue=1, offvalue=0)
-        # L4.grid(row=5,column=2)
-
-        # self.uartBtn = tk.Button(self, text ="UART >>>", command = self.uart)
-        # self.uartBtn.grid(row=6,column=2,columnspan=1)
-
-        # self.uartBtn = tk.Button(self, text ="Save>>", command =lambda: moves.append(last_servos[:]))
-        # self.uartBtn.grid(row=6,column=3,columnspan=1)
-
-        # self.uartBtn = tk.Button(self, text ="Show", command =lambda: print(moves))
-        # self.uartBtn.grid(row=6,column=4,columnspan=1)
-
-        # self.uartBtn = tk.Button(self, text ="Del.Last", command =del_last)
-        # self.uartBtn.grid(row=6,column=5,columnspan=1)
-
-        # self.uartBtn = tk.Button(self, text ="Make!", command =make_moves)
-        # self.uartBtn.grid(row=7,column=3,columnspan=1)
-
-        # self.uartBtn = tk.Button(self, text ="Print", command =print_moves)
-        # self.uartBtn.grid(row=7,column=4,columnspan=1)
-
-        # self.uartBtn = tk.Button(self, text ="Undo Lst", command =undo_last)
-        # self.uartBtn.grid(row=7,column=5,columnspan=1)
+        self.sTwist = tk.Scale(self, from_=-50, to=50, orient=tk.HORIZONTAL, command=self.twist)
+        self.sTwist.grid(row=6,column=1,columnspan=5)
+        self.sTwist.set(0)
         self.redraw()
+
+        self.bHome = tk.Button(text="Home Pose", command=self.homming)
+        self.bHome.grid(row=3, column=1, columnspan=5)
 
         self.Lxy = []
 
@@ -465,173 +442,10 @@ class HelloWorld(tk.Tk):
         self.Lxy.append(legend[:])
         print(self.Lxy)
 
-
-#         self.l1_xp = tk.Button(self, text="(+)", command=lambda: self.legmove(1,1,0))
-#         self.l1_xp.grid(row=4,column=7)
-#         self.l1_xp = tk.Button(self, text="(-)", command=lambda: self.legmove(1,-1,0))
-#         self.l1_xp.grid(row=4,column=5)
-#         self.l1_xp = tk.Button(self, text="(+)", command=lambda: self.legmove(1,0,1))
-#         self.l1_xp.grid(row=3,column=6)
-#         self.l1_xp = tk.Button(self, text="(-)", command=lambda: self.legmove(1,0,-1))
-#         self.l1_xp.grid(row=5,column=6)
-
-#         self.uart2b = tk.Button(self, text="UART>>>>", command=self.uart2)
-#         self.uart2b.grid(row=6, column=6)
-
-#         tekst_komend = """
-#         <42,180,163,10,17,180,153,0,17>;
-#         <42,148,51,42,129,148,41,32,129>;
-#         <42,85,100,105,80,85,90,95,80>;
-#         <42,64,79,126,101,64,69,116,101>;
-#         <42,51,53,139,127,51,43,129,127>;
-#         <42,180,122,10,58,64,69,116,101>;
-#         <42,141,65,49,115,-1,-1,-1,-1>;
-#         <42,180,163,68,78,122,92,0,17>;
-#          <42,127,133,63,47,127,123,53,47>
-#         """
-#         nazwy_komend = """
-#         Lezec;
-#         Jamnik;
-#         Trop 0;
-#         Trop;
-#         Trop 2;
-#         Siad;
-#         Tylne nogi;
-#         Tymo;
-#         Malwa
-#         """
-
-#         self.lista_kom = tekst_komend.split(";")
-#         self.nazwy_kom = nazwy_komend.split(";")
-
-#         self.kom_btn = []
-#         for i,z in enumerate(zip(self.nazwy_kom, self.lista_kom)):
-#             n,k = z
-#             self.kom_btn.append(tk.Button(self, text=n.strip(), command=lambda msg=k: serial_snd(f"{msg.strip()}")))
-#             self.kom_btn[-1].grid(row=8+i,column=1)
-
-
-#         lista_komend = """
-#         <42,148,51,42,129,148,41,32,129>;
-#         <42,64,79,126,101,64,69,116,101>;
-#         <42,121,30,69,150,121,20,59,150>;
-#         <42,148,58,42,122,121,20,59,150>;
-#         <42,148,58,42,122,165,170,59,150>;
-#         <42,148,58,42,122,121,20,59,150>;
-#         <42,121,30,69,150,121,20,59,150>;
-#         <42,66,81,124,99,66,71,114,99>;
-#         <42,148,51,42,129,148,41,32,129>;
-#         """
-#         self.kom_btn.append(tk.Button(self,text="Sekwencja 1", command=lambda msg=lista_komend: serial_lista(msg, dt=800)))
-#         self.kom_btn[-1].grid(row=8,column=2)
-
-#         lista_komend = """
-#         <42,148,51,42,129,148,41,32,129>;
-#         <42,64,79,126,101,64,69,116,101>;
-#         <42,121,30,69,150,121,20,59,150>;
-#         <42,148,58,42,122,121,20,59,150>;
-
-#         <42,148,58,42,122,165,170,59,150>;
-#         <42,165,170,42,122,165,170,59,150>;
-#         <42,148,58,42,122,121,20,0,0>;
-#         <42,148,58,0,0,121,20,0,0>;
-#         <42,148,51,42,129,148,41,32,129>;
-
-#         <42,148,58,42,122,165,170,59,150>;
-#         <42,165,170,42,122,165,170,59,150>;
-#         <42,148,58,42,122,121,20,0,0>;
-#         <42,148,58,0,0,121,20,0,0>;
-#         <42,148,51,42,129,148,41,32,129>;
-
-#         <42,148,58,42,122,165,170,59,150>;
-#         <42,165,170,42,122,165,170,59,150>;
-#         <42,148,58,42,122,121,20,0,0>;
-#         <42,148,58,0,0,121,20,0,0>;
-#         <42,148,51,42,129,148,41,32,129>;
-#         """
-#         self.kom_btn.append(tk.Button(self,text="Sekwencja 2", command=lambda msg=lista_komend: serial_lista(msg, dt=200)))
-#         self.kom_btn[-1].grid(row=9,column=2)
-
-#         lista_komend = """
-#         <42,148,51,42,129,148,41,32,129>;
-#         <42,148,58,42,122,121,20,59,150>;
-#         <42,148,58,42,122,180,180,59,150>;
-#         <42,148,58,42,122,121,20,59,150>;
-#         <42,148,58,42,122,121,20,0,0>;
-#         """
-#         self.kom_btn.append(tk.Button(self,text="Lape daj", command=lambda msg=lista_komend: serial_lista(msg, dt=600)))
-#         self.kom_btn[-1].grid(row=10,column=2)
-
-#         lista_komend = """
-#         <42,90,61,100,119,90,51,90,119>;
-# <42,85,100,105,80,85,90,95,80>;
-# <42,85,100,105,80,85,90,38,122>;
-# <42,85,100,105,80,85,90,82,60>;
-# <42,117,65,73,115,117,55,82,60>;
-# <42,117,65,73,115,156,47,82,60>;
-# <42,117,65,73,115,137,88,82,60>;
-# <42,117,65,73,115,119,83,82,60>;
-# <42,117,65,73,115,144,64,36,106>;
-# <42,109,64,81,116,144,64,36,106>;
-# <42,109,64,81,116,144,64,62,109>;
-# <42,109,64,81,116,144,64,81,104>;
-# <42,109,64,72,60,144,64,81,104>;
-# <42,109,64,87,72,144,64,81,104>;
-# <42,109,64,87,72,144,64,41,86>;
-# <42,109,64,87,72,144,64,65,85>;
-# <42,109,64,87,72,114,111,66,59>;
-# <42,97,103,87,72,114,111,66,59>;
-# <42,90,61,100,119,90,51,90,119>
-#         """
-#         self.kom_btn.append(tk.Button(self,text="pastuch", command=lambda msg=lista_komend: serial_lista(msg, dt=300, n=5)))
-#         self.kom_btn[-1].grid(row=11,column=2)
-
-#         lista_komend = """
-#         <42,91,61,99,119,91,51,89,119>;
-# <42,110,104,99,119,91,51,89,119>;
-# <42,110,104,74,116,116,54,64,116>;
-# <42,95,116,64,119,116,54,64,116>;
-# <42,95,116,64,119,109,130,64,116>;
-# <42,95,116,64,119,129,113,64,116>;
-# <42,136,95,64,119,129,113,64,116>;
-# <42,136,95,64,119,129,113,43,42>;
-# <42,136,95,64,119,129,113,79,56>;
-# <42,115,122,64,119,115,112,79,56>;
-# <42,51,53,139,127,51,43,129,127>;
-# <42,51,53,86,93,51,43,129,127>;
-# <42,51,53,86,93,105,23,75,147>;
-# <42,99,92,86,93,105,23,75,147>;
-# <42,91,61,99,119,91,51,89,119>
-#         """
-#         self.kom_btn.append(tk.Button(self,text="pastuch", command=lambda msg=lista_komend: serial_lista(msg, dt=400, n=5)))
-#         self.kom_btn[-1].grid(row=12,column=2)
-
-#         lista_komend = """
-#         <42,119,70,71,110,119,60,61,110>;
-# <42,119,70,44,118,119,60,61,110>;
-# <42,119,70,44,118,174,64,61,110>;
-# <42,119,70,44,118,112,108,61,110>;
-# <42,119,70,71,111,112,108,61,110>;
-# <42,119,70,71,111,112,108,74,68>;
-# <42,103,70,87,110,112,108,74,68>;
-# <42,103,70,87,110,150,84,30,86>;
-# <42,87,55,103,125,150,84,30,86>;
-# <42,87,55,103,125,112,76,68,94>;
-# <42,71,58,119,122,71,48,109,122>;
-# <42,139,39,119,122,71,48,109,122>;
-# <42,97,97,119,122,71,48,109,122>;
-# <42,76,83,119,122,110,40,109,122>;
-# <42,76,83,92,91,110,40,109,122>;
-# <42,76,83,92,91,83,68,109,122>
-#         """
-#         self.kom_btn.append(tk.Button(self,text="drunk master", command=lambda msg=lista_komend: serial_lista(msg, dt=200, n=1,s=1)))
-#         self.kom_btn[-1].grid(row=12,column=3)
-
-
-#         self.sRamp = tk.Scale(self, from_=50, to=99, orient=tk.HORIZONTAL, command=self.ramp)
-#         # self.sBeta.pack()
-#         self.sRamp.grid(row=11,column=4,columnspan=2)
-#         self.sRamp.set(55)
+    def homming(self):
+        self.sTwist.set(0)
+        self.sSwing.set(0)
+        serial_snd("h")
 
     def ramp(self, event):
         rap = int(self.sRamp.get() * 10)
@@ -703,6 +517,17 @@ class HelloWorld(tk.Tk):
         self.redraw()
         self.makeLeg(A,B,self.c)
         ...
+
+    def swing(self, _):
+        A = -self.sSwing.get();
+        msg = f"swing {A}"
+        serial_snd(msg)
+
+    def twist(self, _):
+        A = -self.sTwist.get();
+        msg = f"twist {A}"
+        serial_snd(msg)
+
 
     def redraw(self):
         if len(self.c_objects):

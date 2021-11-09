@@ -19,9 +19,12 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
+#include "SerialCommand.h"
+SerialCommand sCmd;     // The SerialCommand object
+
 // called this way, it uses the default address 0x40
 Adafruit_PWMServoDriver pwm  = Adafruit_PWMServoDriver(0x40);
-Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60);
+Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60); 
 
 
 // Depending on your servo make, the pulse width min and max may vary, you 
@@ -38,29 +41,45 @@ uint8_t servonum = 0;
 const uint8_t servos = 16;
 
 
-float servo_target[servos];
+float servo_target[servos] = {  90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
+float servo_home[servos] = {    90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
 float servo_current[servos];
-bool    servo_inverse[servos] = { 0,0,1,1,0,0,1,1, 0,0,1,1,0,0,0,0 };
+bool    servo_inverse[servos] = { 0,0,1,1,  0,0,1,1,  0,0,1,1,  0,0,0,0 };
 float   servo_ramp[servos];
 
 bool move_done = false;
+bool in_loop = false;
 int waiting = 0;
 
 unsigned long now = millis();
 unsigned long last = millis();
 unsigned long last_step = millis();
 
-
+#define LEDPIN 2
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Aroin mk2 Servo test!");
 
+   // Setup callbacks for SerialCommand command
+  sCmd.addCommand("c",  processCommand);  // Converts two arguments to integers and echos them back
+  sCmd.addCommand("test", runTest);
+  sCmd.addCommand("h", makeHoming);
+  sCmd.addCommand("ramp", setRamp);
+  sCmd.addCommand("s", setServo); // set a single servo command
+  sCmd.addCommand("d", setServoDelta); // set a single servo by delta angle command
+  sCmd.addCommand("ad", setAllServosDelta); // move all by individual deltas
+  sCmd.addCommand("show", showAngles); // displaying back the current settings
+  sCmd.addCommand("swing", makeSwing); // making a swing to the side
+  sCmd.addCommand("twist", makeTwist); // making a twist to the side
+  
+  sCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
+  
+
   // preparing the inital positions.
   for (int k = 0; k < servos; k++) {
-    servo_target[k] = 90;
+    //servo_target[k] = 90;
     servo_current[k] = 80;
-    // servo_inverse[k] = false;
     servo_ramp[k]= 0.95;
   }
 
@@ -104,10 +123,12 @@ int test_pos[test_steps] = {90, 70, 110};
 void loop() {
 // marking time
 now = millis();
+// making the read from serial
+sCmd.readSerial();
 
   
 // testing servo position
-if (move_done) {
+if (move_done && in_loop) {
   
   Serial.println("Move is done...");
   Serial.print("Test step ");
@@ -176,4 +197,285 @@ void set_servo(int ser, float angle){
           pwm.setPWM(ser-8, 0, pulselen);
         }  
   }
+}
+
+void makeHoming(){
+  // this one stops tle loping and set initial positinos
+  in_loop = false;
+  Serial.print("Homming ");
+  for (int s=0; s < servos; s++){
+      servo_target[s] = servo_home[s];
+      Serial.print(".");
+    }
+   Serial.println();
+  }
+
+void runTest(){
+  // this one toggle the looping of the test set.
+  in_loop = !in_loop;
+  if (in_loop){
+    Serial.println("Running loop...");
+    }
+  else {
+    Serial.println("Stopping loop!");
+  }
+}
+
+
+void setRamp() {
+  // protype function to recieve ramp and set it for all servos
+  
+  float aNumber;
+  char *arg;
+  
+  for (int a=0; a<1; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atof(arg);    // Converts a char string to float
+      float ramp = aNumber/1000;
+      Serial.print("ramp ");
+      Serial.print(" = ");
+      Serial.println(ramp);
+
+      for( int s=0; s < servos; s++) servo_ramp[s]= ramp;
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK no ramp argument");
+      break;
+    }
+  }
+} // setRamp
+
+void setServo() {
+  // protype function to recieve many arguments (up to 20 here)
+  
+  int theValue[2];
+  int arg_num = 0;
+  char *arg;
+
+  
+  for (int a=0; a<2; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      theValue[a] = atoi(arg);    // Converts a char string to an integer
+      arg_num++;
+      Serial.print("argument ");
+      Serial.print(a);
+      Serial.print(" = ");
+      Serial.println(theValue[a]);
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK  2 args expected");
+      break;
+    }
+  }
+  
+  if (arg_num == 2) {
+    if (-1 < theValue[0] && theValue[0] < servos) {
+      if (-1 < theValue[1] && theValue[1] < 181){
+        servo_target[theValue[0]] = theValue[1];
+      }
+    }
+  }
+} // setServo
+
+
+
+void setServoDelta() {
+  // protype function to recieve many arguments (up to 20 here)
+  
+  int theValue[2];
+  int arg_num = 0;
+  char *arg;
+
+  
+  for (int a=0; a<2; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      theValue[a] = atoi(arg);    // Converts a char string to an integer
+      arg_num++;
+      Serial.print("argument ");
+      Serial.print(a);
+      Serial.print(" = ");
+      Serial.println(theValue[a]);
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK  2 args expected");
+      break;
+    }
+  }
+  
+  if (arg_num == 2) {
+    if (-1 < theValue[0] && theValue[0] < servos) {
+      int delta = servo_target[theValue[0]] + theValue[1];
+      
+      if (-1 < delta && delta < 181){
+        servo_target[theValue[0]] = delta;
+      }
+    }
+    else if (theValue[0] == -1){
+      // we move all sevos by this delta
+      for (int s=0; s < servos; s++){
+        int delta = servo_target[s] + theValue[1];
+        
+        if (-1 < delta && delta < 181){
+           servo_target[s] = delta;
+          }  
+        }
+      }
+  }
+} // setServoDelta
+
+void setAllServosDelta() {
+  // protype function to recieve many arguments (up to 20 here)
+  
+  int theValue[16];
+  int arg_num = 0;
+  char *arg;
+
+  
+  for (int a=0; a<16; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      theValue[a] = atoi(arg);    // Converts a char string to an integer
+      arg_num++;
+      Serial.print("argument ");
+      Serial.print(a);
+      Serial.print(" = ");
+      Serial.println(theValue[a]);
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK  16 args expected");
+      break;
+    }
+  }
+  
+  if (arg_num == 16) {
+    // we move all sevos by this delta
+      for (int s=0; s < servos; s++){
+        
+        int alfa = servo_target[s] + theValue[s];
+        
+        if (-1 < alfa && alfa < 181){
+           servo_target[s] = alfa;
+          }  
+        }
+      
+  }
+} // setAllServosDelta
+
+
+
+void showAngles(){
+  // serving the curretn servos angles. 
+  Serial.print("current: ");
+  for (int s=0; s < servos; s++) {
+    Serial.print((int)servo_target[s]);
+    if (s < servos-1) Serial.print(",");
+  }
+  Serial.println();
+} // show angles
+
+
+void makeSwing(){
+  // this fuction makes a swing of given angle
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      Serial.print("Swing by ");
+      Serial.print(aNumber);
+      Serial.println(" degrees"); 
+
+      aNumber = constrain(aNumber, -70,70);
+      for (int s=8; s < 12; s++) servo_target[s] = servo_home[s] + aNumber;
+      
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK");
+    }
+  
+} // makeSwing
+
+
+void makeTwist(){
+  // this fuction makes a swing of given angle
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      Serial.print("Swing by ");
+      Serial.print(aNumber);
+      Serial.println(" degrees"); 
+
+      aNumber = constrain(aNumber, -70,70);
+      servo_target[8] = servo_home[8] + aNumber;
+      servo_target[9] = servo_home[9] + aNumber;
+      servo_target[10] = servo_home[10] - aNumber;
+      servo_target[11] = servo_home[11] - aNumber;
+      
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK");
+    }
+  
+} // makeTwist
+
+
+void processCommand() {
+  // protype function to recieve many arguments (up to 20 here)
+  
+  int aNumber;
+  char *arg;
+  int arg_num = 0;
+  
+  for (int a=0; a<20; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      arg_num++;
+      Serial.print("argument ");
+      Serial.print(a);
+      Serial.print(" = ");
+      Serial.println(aNumber);
+    }
+    else {
+      // we escape as no argument was found. 
+      break;
+    }
+  }
+  
+Serial.print("Recieved ");
+Serial.print(arg_num);
+Serial.println(" arguments");
+  
+} // processCommands
+
+
+
+// This gets set as the default handler, and gets called when no other command matches.
+void unrecognized(const char *command) {
+  Serial.println("NOK");
 }
