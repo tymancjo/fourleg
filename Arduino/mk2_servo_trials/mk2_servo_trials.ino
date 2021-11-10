@@ -56,11 +56,17 @@ unsigned long last = millis();
 unsigned long last_step = millis();
 
 #define LEDPIN 2
+#define POWEROUT 12
+
+bool power = false;
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Aron mk2 Servo test!");
   pinMode(LEDPIN, OUTPUT);
+  pinMode(POWEROUT, OUTPUT);
+
+  digitalWrite(POWEROUT, power);
 
   // Setup callbacks for SerialCommand command
   sCmd.addCommand("c",  processCommand);      // Converts two arguments to integers and echos them back
@@ -70,9 +76,12 @@ void setup() {
   sCmd.addCommand("s", setServo);             // set a single servo command
   sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
   sCmd.addCommand("ad", setAllServosDelta);   // move all by individual deltas
+  sCmd.addCommand("adh", setAllServosDeltaHome);  // move all by individual deltas from home position
+  sCmd.addCommand("circ", makeCircle);        // moving front back left right
   sCmd.addCommand("show", showAngles);        // displaying back the current settings
   sCmd.addCommand("swing", makeSwing);        // making a swing to the side
   sCmd.addCommand("twist", makeTwist);        // making a twist to the side
+  sCmd.addCommand("power", togglePower);      // toggle the power out
   
   sCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
   
@@ -206,6 +215,13 @@ void set_servo(int ser, float angle){
           pwm.setPWM(ser-8, 0, pulselen);
         }  
   }
+}
+
+
+void togglePower(){
+  // toggle power for the servos
+  power = !power;
+  digitalWrite(POWEROUT, power);
 }
 
 void makeHoming(){
@@ -343,6 +359,96 @@ void setServoDelta() {
       }
   }
 } // setServoDelta
+
+
+
+void setAllServosDeltaHome() {
+  // protype function to recieve many arguments (up to 20 here)
+  
+  int theValue[16];
+  int arg_num = 0;
+  char *arg;
+
+  
+  for (int a=0; a<16; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      theValue[a] = atoi(arg);    // Converts a char string to an integer
+      arg_num++;
+      Serial.print("argument ");
+      Serial.print(a);
+      Serial.print(" = ");
+      Serial.println(theValue[a]);
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK  16 args expected");
+      break;
+    }
+  }
+  
+  if (arg_num == 16) {
+    // we move all sevos by this delta
+      for (int s=0; s < servos; s++){
+        
+        int alfa = servo_home[s] + theValue[s];
+        
+        if (-1 < alfa && alfa < 181){
+           servo_target[s] = alfa;
+          }  
+        }
+      
+  }
+} // setAllServosDeltaHome
+
+
+
+void makeCircle() {
+  // protype function to recieve many arguments (up to 20 here)
+  
+  int theValue[2];
+  int arg_num = 0;
+  char *arg;
+
+  
+  for (int a=0; a<2; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      theValue[a] = atoi(arg);    // Converts a char string to an integer
+      arg_num++;
+      Serial.print("argument ");
+      Serial.print(a);
+      Serial.print(" = ");
+      Serial.println(theValue[a]);
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK  2 args expected");
+      break;
+    }
+  }
+  
+  if (arg_num == 2) {
+    // we move all sevos by this delta
+      for (int s=0; s < servos; s++){
+        
+        int alfa = servo_home[s] + theValue[0];
+        if (s > 7) alfa = servo_home[s] + theValue[1];
+        
+        if (-1 < alfa && alfa < 181){
+           servo_target[s] = alfa;
+          }  
+        }
+      
+  }
+} // makeCircle
+
+
+
 
 void setAllServosDelta() {
   // protype function to recieve many arguments (up to 20 here)

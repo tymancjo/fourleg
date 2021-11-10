@@ -29,8 +29,8 @@ def my_print(input_msg):
     else:
         ...
 
-def limit(x):
-    return min(max(-1,x),1)
+def limit(x,min_=-1, max_=1):
+    return min(max(min_,x),max_)
 
 def leg_IK_mk2(point, A=17,C=20.54,E=10.25,F=35,G=60,H=90,N=55,D=20.45,B=17,M=35,L=70, be_precise=False):
     """
@@ -412,6 +412,12 @@ class HelloWorld(tk.Tk):
 
         self.c_objects = []
 
+        self.pad = tk.Canvas(self, bg="silver", width=200, height=200)
+        self.pad.grid(row=11, column=1,rowspan=10, columnspan=5)
+        self.pad.bind("<B1-Motion>", self.getpad)
+        self.pad_obj = []
+
+
 
         self.sAlfa = tk.Scale(self, from_=20, to=120, orient=tk.HORIZONTAL, command=self.sliders)
         self.sAlfa.grid(row=22,column=10,columnspan=2)
@@ -425,9 +431,13 @@ class HelloWorld(tk.Tk):
         self.sSwing.set(0)
 
         self.sTwist = tk.Scale(self, from_=-50, to=50, orient=tk.HORIZONTAL, command=self.twist)
-        self.sTwist.grid(row=6,column=1,columnspan=5)
+        self.sTwist.grid(row=10,column=1,columnspan=5)
         self.sTwist.set(0)
         self.redraw()
+
+        self.sFB = tk.Scale(self, from_=-20, to=20, orient=tk.HORIZONTAL, command=self.swing)
+        self.sFB.grid(row=6,column=1,columnspan=5)
+        self.sFB.set(0)
 
         self.bHome = tk.Button(text="Home Pose", command=self.homming)
         self.bHome.grid(row=3, column=1, columnspan=5)
@@ -441,10 +451,51 @@ class HelloWorld(tk.Tk):
         self.Lxy.append(legend[:])
         self.Lxy.append(legend[:])
         print(self.Lxy)
+        self.getpad();
+
+    def getpad(self, ev=False):
+        
+        if len(self.pad_obj):
+            for obj in self.pad_obj:
+                self.pad.delete(obj)
+            
+        
+        self.pad_obj.append(self.pad.create_line(0,100,200,100))
+        self.pad_obj.append(self.pad.create_line(100,0,100,200))
+
+        if not ev:
+            x = 100
+            y = 100
+        else:
+            x = ev.x
+            y = ev.y
+            
+        x = limit(x,min_=0, max_=200)
+        y = limit(y,min_=0, max_=200)
+        
+
+        dx = x - 100
+        dy = y - 100
+
+        self.pad_obj.append(self.pad.create_oval(x-10,y-10,x+10,y+10,fill="red"))
+        A = int(50*dx/100)
+        B = int(25*dy/100)
+
+        # msg = f"circ {-B} {-A}"
+        # serial_snd(msg) 
+
+        if (A != self.sSwing.get()):
+            self.sSwing.set(A)
+        if (B != self.sFB.get()):
+            self.sFB.set(B)
+
+
 
     def homming(self):
         self.sTwist.set(0)
         self.sSwing.set(0)
+        self.sFB.set(0)
+        self.getpad()
         serial_snd("h")
 
     def ramp(self, event):
@@ -520,7 +571,9 @@ class HelloWorld(tk.Tk):
 
     def swing(self, _):
         A = -self.sSwing.get();
-        msg = f"swing {A}"
+        B = -self.sFB.get();
+        # msg = f"swing {A}"
+        msg = f"circ {B} {A}"
         serial_snd(msg)
 
     def twist(self, _):
