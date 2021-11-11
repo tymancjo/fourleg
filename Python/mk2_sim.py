@@ -439,6 +439,10 @@ class HelloWorld(tk.Tk):
         self.sFB.grid(row=6,column=1,columnspan=5)
         self.sFB.set(0)
 
+        self.sUP = tk.Scale(self, from_=40, to=-40, orient=tk.VERTICAL, command=self.setUp)
+        self.sUP.grid(row=11,column=7,columnspan=1, rowspan=4)
+        self.sUP.set(0)
+        
         self.bHome = tk.Button(text="Home Pose", command=self.homming)
         self.bHome.grid(row=3, column=1, columnspan=5)
 
@@ -458,7 +462,6 @@ class HelloWorld(tk.Tk):
         if len(self.pad_obj):
             for obj in self.pad_obj:
                 self.pad.delete(obj)
-            
         
         self.pad_obj.append(self.pad.create_line(0,100,200,100))
         self.pad_obj.append(self.pad.create_line(100,0,100,200))
@@ -473,7 +476,6 @@ class HelloWorld(tk.Tk):
         x = limit(x,min_=0, max_=200)
         y = limit(y,min_=0, max_=200)
         
-
         dx = x - 100
         dy = y - 100
 
@@ -481,17 +483,20 @@ class HelloWorld(tk.Tk):
         A = int(50*dx/100)
         B = int(25*dy/100)
 
-        # msg = f"circ {-B} {-A}"
-        # serial_snd(msg) 
+        old_A = self.sSwing.get() 
+        old_B = self.sFB.get()
 
-        if (A != self.sSwing.get()):
+        if (abs(A - old_A) > 4):
             self.sSwing.set(A)
-        if (B != self.sFB.get()):
+        if (abs(B - old_B) > 4):
             self.sFB.set(B)
 
+    def setUp(self, *args):
+        UP = self.sUP.get()
+        msg = f"up {int(UP)}"
+        serial_snd(msg)
 
-
-    def homming(self):
+    def homming(self, *args):
         self.sTwist.set(0)
         self.sSwing.set(0)
         self.sFB.set(0)

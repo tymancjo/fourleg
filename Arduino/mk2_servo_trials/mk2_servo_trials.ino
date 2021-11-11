@@ -40,12 +40,13 @@ Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60);
 uint8_t servonum = 0;
 const uint8_t servos = 16;
 
+float servo_zero[servos]    = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
+float servo_target[servos]  = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
+float servo_home[servos]    = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
+bool  servo_inverse[servos] = {   0,0,1,1,      0,0,1,1,      0,0,1,1,        0,0,0,0 };
 
-float servo_target[servos] = {  90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
-float servo_home[servos] = {    90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
 float servo_current[servos];
-bool    servo_inverse[servos] = { 0,0,1,1,  0,0,1,1,  0,0,1,1,  0,0,0,0 };
-float   servo_ramp[servos];
+float servo_ramp[servos];
 
 bool move_done = false;
 bool in_loop = false;
@@ -71,17 +72,23 @@ void setup() {
   // Setup callbacks for SerialCommand command
   sCmd.addCommand("c",  processCommand);      // Converts two arguments to integers and echos them back
   sCmd.addCommand("test", runTest);           // run the simple test sequence - just moves all servos in loop.
-  sCmd.addCommand("h", makeHoming);           // ressetting the servos to initial position
+  sCmd.addCommand("h", makeHoming);           // ressetting the servos to home position
+  sCmd.addCommand("reset", makeZero);         // ressetting the servos home to initial position - but no move make
   sCmd.addCommand("ramp", setRamp);           // set up the ramp value input as 990 gives 0.99 ramp etc.
+  
   sCmd.addCommand("s", setServo);             // set a single servo command
   sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
   sCmd.addCommand("ad", setAllServosDelta);   // move all by individual deltas
   sCmd.addCommand("adh", setAllServosDeltaHome);  // move all by individual deltas from home position
-  sCmd.addCommand("circ", makeCircle);        // moving front back left right
-  sCmd.addCommand("show", showAngles);        // displaying back the current settings
-  sCmd.addCommand("swing", makeSwing);        // making a swing to the side
-  sCmd.addCommand("twist", makeTwist);        // making a twist to the side
+  
+  sCmd.addCommand("circ", makeCircle);        // moving front back left right by 2 arguments 
+  sCmd.addCommand("swing", makeSwing);        // making a swing to the side by 1 argument
+  sCmd.addCommand("twist", makeTwist);        // making a twist to the side by 1 argument
+
+  sCmd.addCommand("up", makeUp);              // adding the value to the homing of the up/dn servos
+
   sCmd.addCommand("power", togglePower);      // toggle the power out
+  sCmd.addCommand("show", showAngles);        // displaying back the current angles of all servos
   
   sCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
   
@@ -92,9 +99,6 @@ void setup() {
     servo_current[k] = 80;
     servo_ramp[k]= 0.95;
   }
-
-  
-
 
   pwm.begin();
   pwm2.begin();
@@ -133,19 +137,20 @@ void setup() {
   digitalWrite(LEDPIN, HIGH);
 }
 
+// simple loop moving test - usefull for hardware verification.
 int test_step = 0;
 const int test_steps = 3;
 int test_pos[test_steps] = {90, 70, 110};
-//int test_pos[test_steps] = {90, 90, 90};
+
 
 void loop() {
-// marking time
-now = millis();
+// marking current time
+  now = millis();
 // making the read from serial
-sCmd.readSerial();
+  sCmd.readSerial();
 
   
-// testing servo position
+// testing servo position loop.
 if (move_done && in_loop) {
   
   Serial.println("Move is done...");
@@ -162,12 +167,12 @@ if (move_done && in_loop) {
   if (test_step == test_steps){
     test_step = 0;
   }
-}
+} // end of servo testing
 
 
 
   
-// making the servos moves
+// making the servos moves - the main loop action
 if (now > last + 2){
   last = now;  
   move_done = true;
@@ -175,7 +180,7 @@ if (now > last + 2){
 
     // checking if need to move
     if (abs(servo_target[s] - servo_current[s]) > 1){
-    
+      // if the servo is away more than a 1 degree we move
       move_done = false;
       servo_current[s] = servo_ramp[s] * servo_current[s] + (1 - servo_ramp[s]) * servo_target[s];
       set_servo(s, servo_current[s]);
@@ -183,8 +188,7 @@ if (now > last + 2){
     }
     else {
       servo_current[s] = servo_target[s];
-    }
-  
+    }  
   }
 }
 
@@ -217,11 +221,51 @@ void set_servo(int ser, float angle){
   }
 }
 
+void makeUp(){
+  // rising or lowering all legs. 
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      Serial.print("Risig by ");
+      Serial.print(aNumber);
+      Serial.println(" degrees"); 
+
+      aNumber = constrain(aNumber, -40,40);
+      // modyfing the home setting
+      for (int s=0; s < 8; s+=2) {
+        servo_target[s] = servo_target[s] - aNumber + (servo_zero[s] - servo_target[s]);
+        servo_home[s] = servo_zero[s] - aNumber;
+      }
+      
+      float aNumberF = -1.0 * (aNumber / 3.5); // to compensate the front back when we rise or lower
+      aNumber = (int) aNumberF;
+      Serial.println(aNumber);
+      for (int s=1; s < 8; s+=2) {
+        servo_target[s] = servo_target[s] - aNumber + (servo_zero[s] - servo_target[s]);
+        servo_home[s] = servo_zero[s] - aNumber;
+      }
+      
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK");
+    }
+  
+} // makeUp
 
 void togglePower(){
   // toggle power for the servos
   power = !power;
   digitalWrite(POWEROUT, power);
+}
+
+void makeZero(){
+  // setting up the home to the zero positions
+  for (int s=0; s<servos; s++) servo_home[s] = servo_zero[s];
 }
 
 void makeHoming(){
@@ -498,7 +542,7 @@ void showAngles(){
   Serial.print("current: ");
   for (int s=0; s < servos; s++) {
     Serial.print((int)servo_target[s]);
-    if (s < servos-1) Serial.print(",");
+    if (s < servos-1) Serial.print(" ");
   }
   Serial.println();
 } // show angles
