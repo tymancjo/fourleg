@@ -2,10 +2,11 @@
 import tkinter as tk
 from tkinter import ttk
 import math
-from tkinter.constants import E, W
+from tkinter.constants import E, W, YES
 import serial
 import serial.tools.list_ports
 import time
+from PIL import ImageTk, Image
  
 # -- Windows only configuration --
 try:
@@ -386,41 +387,64 @@ class HelloWorld(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.geometry("650x650")
+        self.geometry("950x450")
         self.title("FLR Leg Simulator")
+
+
+        #Setting it up
+        img = ImageTk.PhotoImage(Image.open("img/aronmk2.png").resize((150,75)).convert('RGB'))
+
+        label = ttk.Label(self, text=" . ")
+        label.config(font=("Arial",20))
+        label.grid(row=1,column=1,columnspan=1, sticky="we")
+        # label.image = img
+
+
+        c0 = 1
+        r0 = 3
 
         label = ttk.Label(self, text="FLR IK Simulator v0.3 for mk2")
         label.config(font=("Arial",20))
-        label.grid(row=1,column=2,columnspan=14, sticky="we")
+        label.grid(row=1,column=c0+2,columnspan=10, sticky="we")
+
 
 
         self.pad = tk.Canvas(self, bg="silver", width=200, height=200)
-        self.pad.grid(row=11, column=1,rowspan=10, columnspan=4)
+        self.pad.grid(row=r0+11, column=c0+1,rowspan=10, columnspan=4)
         self.pad.bind("<B1-Motion>", self.getpad)
         self.pad_obj = []
 
         self.sSwing = tk.Scale(self, from_=-50, to=50, orient=tk.HORIZONTAL, command=self.swing)
-        self.sSwing.grid(row=4,column=2,columnspan=3, sticky='we')
+        self.sSwing.grid(row=r0+4,column=c0+2,columnspan=3, sticky='we')
         self.sSwing.set(0)
 
         self.sFB = tk.Scale(self, from_=-20, to=40, orient=tk.HORIZONTAL, command=self.swing)
-        self.sFB.grid(row=6,column=2,columnspan=3, sticky='we')
+        self.sFB.grid(row=r0+6,column=c0+2,columnspan=3, sticky='we')
         self.sFB.set(0)
 
         self.sUP = tk.Scale(self, from_=40, to=-40, orient=tk.VERTICAL, command=self.setUp)
-        self.sUP.grid(row=11,column=5,columnspan=1, rowspan=10, sticky=tk.N+tk.S)
+        self.sUP.grid(row=r0+11,column=c0+5,columnspan=1, rowspan=10, sticky=tk.N+tk.S)
         self.sUP.set(0)
 
         self.last_up = 0;
         
         self.bHome = tk.Button(text="Home Pose", command=self.homming)
-        self.bHome.grid(row=3, column=1, columnspan=2)
+        self.bHome.grid(row=r0+3, column=c0+1, columnspan=2)
 
         self.bHome = tk.Button(text="Val.Reset", command=self.reset)
-        self.bHome.grid(row=3, column=4, columnspan=2)
+        self.bHome.grid(row=r0+3, column=c0+4, columnspan=2)
 
 
         # making the controls for the individual legs. 
+        label = ttk.Label(self, text="Individual leg's")
+        label.config(font=("Arial",20))
+        label.grid(row=r0+3,column=15,columnspan=5, sticky="we")
+
+        img = ImageTk.PhotoImage(Image.open("img/aronmk2T.png").resize((200,200)).convert('RGB'))
+        button = tk.Button(self, image=img )
+        button.grid(row=7, column=20, columnspan=1, rowspan=12)
+        button.image = img
+
         self.legs_up = []
         self.legs_fb = []
         srow = 5
@@ -431,15 +455,15 @@ class HelloWorld(tk.Tk):
                 c = scol 
             else:
                 r = srow + ((L-1) // 3) * 6
-                c = scol + 6
+                c = scol + 10
 
 
             self.legs_up.append(tk.Scale(self, from_=40, to=-40, orient=tk.VERTICAL, command=lambda x, a=L: self.moveLeg(a)))
-            self.legs_up[-1].grid(row=r,column=c,columnspan=1, rowspan=3, sticky=tk.N+tk.S)
+            self.legs_up[-1].grid(row=r0+r,column=c0+c,columnspan=1, rowspan=3, sticky=tk.N+tk.S)
             self.legs_up[-1].set(0)
 
             self.legs_fb.append(tk.Scale(self, from_=-20, to=20, orient=tk.HORIZONTAL, command=lambda x, a=L: self.moveLeg(a)))
-            self.legs_fb[-1].grid(row=r,column=c+1,columnspan=3, rowspan=1, sticky=tk.E+tk.W)
+            self.legs_fb[-1].grid(row=r0+r,column=c0+c+1,columnspan=3, rowspan=1, sticky=tk.E+tk.W)
             self.legs_fb[-1].set(0)
 
         self.getpad();
