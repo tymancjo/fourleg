@@ -386,76 +386,83 @@ class HelloWorld(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.geometry("1240x750")
+        self.geometry("650x650")
         self.title("FLR Leg Simulator")
 
         label = ttk.Label(self, text="FLR IK Simulator v0.3 for mk2")
         label.config(font=("Arial",20))
-        # label.pack()
-        label.grid(row=1,column=1,columnspan=4)
+        label.grid(row=1,column=2,columnspan=14, sticky="we")
 
-        self.W = 600
-        self.H = 600
-
-        self.zeroX = 350
-        self.zeroY = 100
-
-        self.klikx = 350
-        self.kliky = 100
-
-        self.c = tk.Canvas(self, bg="blue", width=self.W, height=self.H)
-        # self.c.pack()
-        self.c.grid(row=2,column=10,columnspan=4, rowspan=20)
-
-        self.c.bind("<Button-1>", self.update)
-        self.c.bind("<B1-Motion>", self.update)
-
-        self.c_objects = []
 
         self.pad = tk.Canvas(self, bg="silver", width=200, height=200)
-        self.pad.grid(row=11, column=1,rowspan=10, columnspan=5)
+        self.pad.grid(row=11, column=1,rowspan=10, columnspan=4)
         self.pad.bind("<B1-Motion>", self.getpad)
         self.pad_obj = []
 
-
-
-        self.sAlfa = tk.Scale(self, from_=20, to=120, orient=tk.HORIZONTAL, command=self.sliders)
-        self.sAlfa.grid(row=22,column=10,columnspan=2)
-        self.sAlfa.set(90)
-        self.sBeta = tk.Scale(self, from_=0, to=180, orient=tk.HORIZONTAL, command=self.sliders)
-        self.sBeta.grid(row=22,column=12,columnspan=2)
-        self.sBeta.set(90)
-
         self.sSwing = tk.Scale(self, from_=-50, to=50, orient=tk.HORIZONTAL, command=self.swing)
-        self.sSwing.grid(row=4,column=1,columnspan=5)
+        self.sSwing.grid(row=4,column=2,columnspan=3, sticky='we')
         self.sSwing.set(0)
 
-        self.sTwist = tk.Scale(self, from_=-50, to=50, orient=tk.HORIZONTAL, command=self.twist)
-        self.sTwist.grid(row=10,column=1,columnspan=5)
-        self.sTwist.set(0)
-        self.redraw()
-
-        self.sFB = tk.Scale(self, from_=-20, to=20, orient=tk.HORIZONTAL, command=self.swing)
-        self.sFB.grid(row=6,column=1,columnspan=5)
+        self.sFB = tk.Scale(self, from_=-20, to=40, orient=tk.HORIZONTAL, command=self.swing)
+        self.sFB.grid(row=6,column=2,columnspan=3, sticky='we')
         self.sFB.set(0)
 
         self.sUP = tk.Scale(self, from_=40, to=-40, orient=tk.VERTICAL, command=self.setUp)
-        self.sUP.grid(row=11,column=7,columnspan=1, rowspan=4)
+        self.sUP.grid(row=11,column=5,columnspan=1, rowspan=10, sticky=tk.N+tk.S)
         self.sUP.set(0)
+
+        self.last_up = 0;
         
         self.bHome = tk.Button(text="Home Pose", command=self.homming)
-        self.bHome.grid(row=3, column=1, columnspan=5)
+        self.bHome.grid(row=3, column=1, columnspan=2)
 
-        self.Lxy = []
+        self.bHome = tk.Button(text="Val.Reset", command=self.reset)
+        self.bHome.grid(row=3, column=4, columnspan=2)
 
-        # initial draw
-        legend = self.makeLeg(self.sAlfa.get(), self.sBeta.get(),self.c)
-        self.Lxy.append(legend[:])
-        self.Lxy.append(legend[:])
-        self.Lxy.append(legend[:])
-        self.Lxy.append(legend[:])
-        print(self.Lxy)
+
+        # making the controls for the individual legs. 
+        self.legs_up = []
+        self.legs_fb = []
+        srow = 5
+        scol = 13
+        for L in range(1,5):
+            if L in [1,3]:
+                r = srow + (L // 3) * 6
+                c = scol 
+            else:
+                r = srow + ((L-1) // 3) * 6
+                c = scol + 6
+
+
+            self.legs_up.append(tk.Scale(self, from_=40, to=-40, orient=tk.VERTICAL, command=lambda x, a=L: self.moveLeg(a)))
+            self.legs_up[-1].grid(row=r,column=c,columnspan=1, rowspan=3, sticky=tk.N+tk.S)
+            self.legs_up[-1].set(0)
+
+            self.legs_fb.append(tk.Scale(self, from_=-20, to=20, orient=tk.HORIZONTAL, command=lambda x, a=L: self.moveLeg(a)))
+            self.legs_fb[-1].grid(row=r,column=c+1,columnspan=3, rowspan=1, sticky=tk.E+tk.W)
+            self.legs_fb[-1].set(0)
+
         self.getpad();
+
+
+    def moveLeg(self,leg):
+        up = self.legs_up[leg-1].get()
+        fb = self.legs_fb[leg-1].get()
+
+        msg = f"leg {leg} {up} {fb} 0"
+        serial_snd(msg)
+
+        print(f"Will move the {leg} by: {msg}")
+
+    def reset(self, *args):
+        for p in self.legs_fb:
+            p.set(0)
+        for p in self.legs_up:
+            p.set(0)
+        self.last_up = 0
+        self.sUP.set(0)
+        msg = "reset"
+        serial_snd(msg)
 
     def getpad(self, ev=False):
         
@@ -493,14 +500,16 @@ class HelloWorld(tk.Tk):
 
     def setUp(self, *args):
         UP = self.sUP.get()
-        msg = f"up {int(UP)}"
-        serial_snd(msg)
+        if abs(UP - self.last_up) > 5:
+            msg = f"up {int(UP)}"
+            serial_snd(msg)
+            self.last_up = UP
 
     def homming(self, *args):
-        self.sTwist.set(0)
         self.sSwing.set(0)
         self.sFB.set(0)
         self.getpad()
+
         serial_snd("h")
 
     def ramp(self, event):
@@ -580,6 +589,8 @@ class HelloWorld(tk.Tk):
         # msg = f"swing {A}"
         msg = f"circ {B} {A}"
         serial_snd(msg)
+
+
 
     def twist(self, _):
         A = -self.sTwist.get();
