@@ -40,9 +40,9 @@ Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60);
 uint8_t servonum = 0;
 const uint8_t servos = 16;
 
-float servo_zero[servos]    = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
-float servo_target[servos]  = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
-float servo_home[servos]    = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
+float servo_zero[servos]    = {   90,90,90,90,  90,90,90,90,  120,60,120,60,  90,90,90,90 };
+float servo_target[servos]  = {   90,90,90,90,  90,90,90,90,  120,60,120,60,  90,90,90,90 };
+float servo_home[servos]    = {   90,90,90,90,  90,90,90,90,  120,60,110,60,  90,90,90,90 };
 bool  servo_inverse[servos] = {   0,0,1,1,      0,0,1,1,      0,0,1,1,        0,0,0,0 };
 
 // for making the incremental model
@@ -65,6 +65,11 @@ unsigned long last_step = millis();
 #define LEDPIN 2
 #define POWEROUT 12
 
+#define M1A 33
+#define M1B 25
+#define M2A 26
+#define M2B 27
+
 bool power = false;
 
 void setup() {
@@ -72,6 +77,17 @@ void setup() {
   Serial.println("Aron mk2 Servo test!");
   pinMode(LEDPIN, OUTPUT);
   pinMode(POWEROUT, OUTPUT);
+
+  // pinMode(M1A, OUTPUT);
+  ledcAttachPin(M1A, 0); // assign a led pins to a channel
+  ledcAttachPin(M1B, 1); // assign a led pins to a channel
+  ledcAttachPin(M2A, 2); // assign a led pins to a channel
+  ledcAttachPin(M2B, 3); // assign a led pins to a channel
+
+  ledcSetup(0, 4000, 8); // 12 kHz PWM, 8-bit resolution
+  ledcSetup(1, 4000, 8); // 12 kHz PWM, 8-bit resolution
+  ledcSetup(2, 4000, 8); // 12 kHz PWM, 8-bit resolution
+  ledcSetup(3, 4000, 8); // 12 kHz PWM, 8-bit resolution
 
   digitalWrite(POWEROUT, power);
 
@@ -89,6 +105,8 @@ void setup() {
   sCmd.addCommand("move", makeMove);          // triggering to makte move to current incremental set
   sCmd.addCommand("up", makeUp);              // adding the value to the homing of the up/dn servos
   sCmd.addCommand("leg", moveLeg);            // set data for single leg incremental model move
+  sCmd.addCommand("drv", driveWheels);        // move the wheels by 2 params
+  sCmd.addCommand("s", allStop);
   
   // sCmd.addCommand("s", setServo);             // set a single servo command
   // sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
@@ -396,6 +414,61 @@ void runTest(){
     Serial.println("Stopping loop!");
   }
 }
+
+void allStop(){
+  for (int n=0; n<4; n++){
+    ledcWrite(n,0);
+  }
+}
+
+void driveWheels() {
+  // protype function to recieve ramp and set it for all servos
+  
+  int aNumber[2];
+  char *arg;
+  int arg_num = 0;
+  
+  for (int a=0; a<2; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber[a] = atoi(arg);    // Converts a char string to int
+      arg_num++;
+    }
+    else {
+      // we escape as no argument was found. 
+      Serial.println("NOK");
+      break;
+    }
+  }
+
+  if (arg_num == 2){
+    // making the wheel drive
+    int left = -aNumber[0];
+    int right = -aNumber[1];
+
+      if (left < 0){
+        ledcWrite(0, abs(left));
+        ledcWrite(1, 0);
+      }
+      else {
+        ledcWrite(1, abs(left));
+        ledcWrite(0, 0);
+      }
+
+      if (right < 0){
+        ledcWrite(2, abs(right));
+        ledcWrite(3, 0);
+      }
+      else {
+        ledcWrite(3, abs(right));
+        ledcWrite(2, 0);
+      }
+    
+  }
+  
+} // driveWheels
 
 
 void setRamp() {

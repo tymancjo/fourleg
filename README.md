@@ -7,7 +7,7 @@ The info about the mk2 will be updated here soon.
 For the moment please take a look at the vide playlist:
 [YouTube Playlist](https://www.youtube.com/watch?v=CJRxDc_nvHY&list=PL9g9iwA2sCQyebAMLQ3WOS7w4_cqAUxdq)
 
-![Aron Mk2](doc/img/mk2.png)
+![Aron Mk2](doc/img/mk2_wheels.jpg)
 
 #
 #

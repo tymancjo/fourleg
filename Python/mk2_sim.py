@@ -387,7 +387,7 @@ class HelloWorld(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.geometry("950x450")
+        self.geometry("950x550")
         self.title("FLR Leg Simulator")
 
 
@@ -425,8 +425,12 @@ class HelloWorld(tk.Tk):
         self.sUP = tk.Scale(self, from_=40, to=-40, orient=tk.VERTICAL, command=self.setUp)
         self.sUP.grid(row=r0+11,column=c0+5,columnspan=1, rowspan=10, sticky=tk.N+tk.S)
         self.sUP.set(0)
-
         self.last_up = 0;
+
+        self.sDrv = tk.Scale(self, from_=150, to=-150, orient=tk.VERTICAL, command=lambda a: self.drive())
+        self.sDrv.grid(row=r0+11,column=c0+6,columnspan=1, rowspan=10, sticky=tk.N+tk.S)
+        self.sDrv.set(0)
+        self.sDrv.bind("<ButtonRelease-1>", self.stopdrive)
         
         self.bHome = tk.Button(text="Home Pose", command=self.homming)
         self.bHome.grid(row=r0+3, column=c0+1, columnspan=2)
@@ -468,6 +472,19 @@ class HelloWorld(tk.Tk):
 
         self.getpad();
 
+
+    def drive(self):
+        drv = self.sDrv.get()
+        sign = drv/abs(drv)
+        drv = drv + sign*50
+        drv = limit(drv,min_=-254,max_=254)
+        msg = f"drv {drv} {drv}"
+        serial_snd(msg)
+
+    def stopdrive(self, *arg):
+        msg = "drv 0 0"
+        serial_snd(msg)
+        self.sDrv.set(0)
 
     def moveLeg(self,leg):
         up = self.legs_up[leg-1].get()
