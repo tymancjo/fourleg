@@ -172,7 +172,7 @@ bool power = false;
 void setup() {
 //  Serial.begin(115200);
   Serial.begin(9600);
-  Serial.println("Aron mk2 Servo test!");
+  Serial.println("Aron mk2 Firmvare System");
   pinMode(LEDPIN, OUTPUT);
   pinMode(POWEROUT, OUTPUT);
 
@@ -255,8 +255,17 @@ void setup() {
 
   pwm2.setOscillatorFrequency(27000000);
   pwm2.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
+    // Preparing static IP adress 
+    IPAddress local_ip0(192,168,0,123);
+    IPAddress gateway0(192,168,0,1);
+    IPAddress subnet0(255,255,255,0);
+    
 
    // Connect to Wi-Fi
+      if (!WiFi.config(local_ip0, gateway0, subnet0)) {
+          Serial.println("STA Failed to configure");
+          }
+          
       WiFi.begin(ssid, password);
       int wifitrys = 0;
       while (WiFi.status() != WL_CONNECTED) {
