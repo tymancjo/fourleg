@@ -22,6 +22,94 @@
 #include "SerialCommand.h"
 SerialCommand sCmd;     // The SerialCommand object
 
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
+
+#include "html.h"
+#include "secret.h"
+
+// Replace with your network credentials
+const char* ssid = SSIDs;
+const char* password = PASSs;
+
+// ********** Stuff for webservice *********
+
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+
+void notifyClients() {
+  
+}
+
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+  AwsFrameInfo *info = (AwsFrameInfo*)arg;
+  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+    data[len] = 0;
+    
+//      Serial.println("got: ");
+//      Serial.println((char*)data);
+      
+      command((char*)data);
+
+      
+
+        
+//      StaticJsonDocument<300> doc; //Memory pool
+//
+//      
+//      // Deserialize the JSON document
+//      DeserializationError error = deserializeJson(doc, (char*)data);
+//
+//      // Test if parsing succeeds.
+//      if (error) {
+//        Serial.print(F("deserializeJson() failed: "));
+//        Serial.println(error.f_str());
+//      } 
+//      else {
+//            // reading form the websocket data
+//            char* cmd = doc["cmd"];
+//            // sending it as a fake uart stuff.
+//            command(cmd);
+//      }   
+  }
+}
+
+
+
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+             void *arg, uint8_t *data, size_t len) {
+  switch (type) {
+    case WS_EVT_CONNECT:
+      Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      break;
+    case WS_EVT_DISCONNECT:
+      Serial.printf("WebSocket client #%u disconnected\n", client->id());
+      break;
+    case WS_EVT_DATA:
+      handleWebSocketMessage(arg, data, len);
+      break;
+    case WS_EVT_PONG:
+    case WS_EVT_ERROR:
+      break;
+  }
+}
+
+void initWebSocket() {
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+}
+
+String processor(const String& var){
+  Serial.println(var);
+  return "OK";
+}
+
+// ******************
+
 // called this way, it uses the default address 0x40
 Adafruit_PWMServoDriver pwm  = Adafruit_PWMServoDriver(0x40);
 Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60); 
@@ -40,9 +128,9 @@ Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60);
 uint8_t servonum = 0;
 const uint8_t servos = 16;
 
-float servo_zero[servos]    = {   90,90,90,90,  90,90,90,90,  120,60,120,60,  90,90,90,90 };
-float servo_target[servos]  = {   90,90,90,90,  90,90,90,90,  120,60,120,60,  90,90,90,90 };
-float servo_home[servos]    = {   90,90,90,90,  90,90,90,90,  120,60,110,60,  90,90,90,90 };
+float servo_zero[servos]    = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
+float servo_target[servos]  = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
+float servo_home[servos]    = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
 bool  servo_inverse[servos] = {   0,0,1,1,      0,0,1,1,      0,0,1,1,        0,0,0,0 };
 
 // for making the incremental model
@@ -70,15 +158,25 @@ unsigned long last_step = millis();
 #define M2A 26
 #define M2B 27
 
+//#define DEBUG
+#ifdef DEBUG
+  #define DEBUG_PRINT(x)    Serial.print (x)
+  #define DEBUG_PRINTLN(x)  Serial.println (x)
+#else
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTLN(x) 
+#endif
+
 bool power = false;
 
 void setup() {
-  Serial.begin(115200);
+//  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println("Aron mk2 Servo test!");
   pinMode(LEDPIN, OUTPUT);
   pinMode(POWEROUT, OUTPUT);
 
-  // pinMode(M1A, OUTPUT);
+  // Preparing the PWM channesl for the motors
   ledcAttachPin(M1A, 0); // assign a led pins to a channel
   ledcAttachPin(M1B, 1); // assign a led pins to a channel
   ledcAttachPin(M2A, 2); // assign a led pins to a channel
@@ -106,7 +204,12 @@ void setup() {
   sCmd.addCommand("up", makeUp);              // adding the value to the homing of the up/dn servos
   sCmd.addCommand("leg", moveLeg);            // set data for single leg incremental model move
   sCmd.addCommand("drv", driveWheels);        // move the wheels by 2 params
-  sCmd.addCommand("s", allStop);
+  sCmd.addCommand("s", allStop);              // full stop for wheels
+  sCmd.addCommand("twist", makeTwist);        // twist - to make a turning - experimental  
+  sCmd.addCommand("walk", makeWalk);          // the sudo walk command
+  sCmd.addCommand("w", makeWalk);             // the sudo walk command
+
+  sCmd.addCommand("fake", fakeData);          // to test the fake serial data
   
   // sCmd.addCommand("s", setServo);             // set a single servo command
   // sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
@@ -153,6 +256,59 @@ void setup() {
   pwm2.setOscillatorFrequency(27000000);
   pwm2.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
 
+   // Connect to Wi-Fi
+      WiFi.begin(ssid, password);
+      int wifitrys = 0;
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.println("Connecting to WiFi..");
+        wifitrys++;
+    
+        if (wifitrys > 7) break;
+      }
+      delay(300);
+
+   // if not connected - making own AP  
+  if (WiFi.status() != WL_CONNECTED){
+    WiFi.disconnect();
+    
+    delay(1000);
+    // Replace with your network credentials
+    const char* ssid2     = "BB.LAB.ARON";
+    const char* password2 = "123456789";
+
+   /* Put IP Address details */
+    IPAddress local_ip(192,168,1,1);
+    IPAddress gateway(192,168,1,1);
+    IPAddress subnet(255,255,255,0);
+
+
+    
+    Serial.print("Setting AP (Access Point)…");
+    WiFi.softAP(ssid2, password2);
+    WiFi.softAPConfig(local_ip, gateway, subnet);
+    delay(300);
+    Serial.println(WiFi.softAPIP());
+  }
+  else
+ {
+  // Print ESP Local IP Address
+  Serial.println(WiFi.localIP());
+ }
+
+  
+
+  initWebSocket();
+
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  // Start server
+  server.begin();
+
+
   Serial.print("Starting up");
   for (int k=0; k < 21; k++){
     digitalWrite(LEDPIN, HIGH);
@@ -167,8 +323,13 @@ void setup() {
 
 // simple loop moving test - usefull for hardware verification.
 int test_step = 0;
-const int test_steps = 3;
-int test_pos[test_steps] = {90, 70, 110};
+const int test_steps = 2;
+int test_pos[test_steps][servos] = {
+//{90,90,90,90,90,90,90,90,120,60,110,60,90,90,90,90},
+{70,70,110,110,110,110,70,70,140,80,90,40,90,90,90,90},
+//{90,90,90,90,90,90,90,90,120,60,110,60,90,90,90,90},
+{110,110,70,70,70,70,110,110,100,40,130,80,90,90,90,90}
+};
 
 
 void loop() {
@@ -176,19 +337,21 @@ void loop() {
   now = millis();
 // making the read from serial
   sCmd.readSerial();
+// checking the `webSocket stuff
+  ws.cleanupClients();
 
   
 // testing servo position loop.
 if (move_done && in_loop) {
   
-  Serial.println("Move is done...");
-  Serial.print("Test step ");
-  Serial.print(test_step);
-  Serial.print(" set angle ");
-  Serial.println(test_pos[test_step]);
+  DEBUG_PRINTLN("Move is done...");
+  DEBUG_PRINT("Test step ");
+  DEBUG_PRINT(test_step);
+  DEBUG_PRINT(" set angle ");
+  DEBUG_PRINTLN(test_pos[test_step]);
   
   for (int s=0; s < servos; s++){
-    servo_target[s] = test_pos[test_step];
+    servo_target[s] = test_pos[test_step][s];
   }
   test_step++;
   
@@ -249,6 +412,22 @@ void set_servo(int ser, float angle){
   }
 } //set_servos
 
+
+void fakeData(){
+  // introducing the fake data - for the sake of testing
+  // getting the param
+  
+  char chars[64];
+
+  sprintf(chars, "circ %d %d\n", 10, 30);
+  
+  sCmd.readStr(chars);
+}
+
+void command(char *cmd){
+  sCmd.readStr(cmd);
+}
+
 void makeMove(){
   // the incremental model moves
   for (int s=0; s<servos; s++){
@@ -271,9 +450,9 @@ void makeUp(){
     
     if (arg != NULL) {
       aNumber = atoi(arg);    // Converts a char string to an integer
-      Serial.print("Risig by ");
-      Serial.print(aNumber);
-      Serial.println(" degrees"); 
+      DEBUG_PRINT("Risig by ");
+      DEBUG_PRINT(aNumber);
+      DEBUG_PRINTLN(" degrees"); 
 
       aNumber = constrain(aNumber, -40,40);
       // modyfing the home setting
@@ -284,7 +463,7 @@ void makeUp(){
       
       float aNumberF = -1.0 * (aNumber / 3.5); // to compensate the front back when we rise or lower
       aNumber = (int) aNumberF;
-      Serial.println(aNumber);
+      DEBUG_PRINTLN(aNumber);
       for (int s=1; s < 8; s+=2) {
       //  servo_target[s] = servo_target[s] - aNumber + (servo_zero[s] - servo_target[s]);
         servo_up[s] = -aNumber;
@@ -295,10 +474,55 @@ void makeUp(){
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK");
+      DEBUG_PRINTLN("NOK");
     }
   
 } // makeUp
+
+
+void makeTwist(){
+  // making a Twist move - may be dangerous!! 
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      DEBUG_PRINT("Twist by ");
+      DEBUG_PRINT(aNumber);
+      DEBUG_PRINTLN(" degrees"); 
+
+      aNumber = constrain(aNumber, -25,25);
+      // modyfing the lr setting
+      servo_lr[8]  =  aNumber;
+      servo_lr[9]  =  aNumber;
+      servo_lr[10] =  -aNumber;
+      servo_lr[11] =  -aNumber;
+
+      
+      servo_lr[0] = -aNumber;
+      servo_lr[1] = -aNumber;
+
+      servo_lr[2] = aNumber;
+      servo_lr[3] = aNumber;
+
+      servo_lr[4] = aNumber;
+      servo_lr[5] = aNumber;
+
+      servo_lr[6] = -aNumber;
+      servo_lr[7] = -aNumber;
+      
+
+      makeMove();
+      
+    }
+    else {
+      // we escape as no argument was found. 
+      DEBUG_PRINTLN("NOK");
+    }
+  
+} // makeTwist
 
 
 void moveLeg() {
@@ -316,14 +540,14 @@ void moveLeg() {
     if (arg != NULL) {
       theValue[a] = atoi(arg);    // Converts a char string to an integer
       arg_num++;
-      Serial.print("argument ");
-      Serial.print(a);
-      Serial.print(" = ");
-      Serial.println(theValue[a]);
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(theValue[a]);
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK  4 args expected");
+      DEBUG_PRINTLN("NOK  4 args expected");
       break;
     }
   }
@@ -396,22 +620,22 @@ void makeZero(){
 void makeHoming(){
   // this one stops tle loping and set initial positinos
   in_loop = false;
-  Serial.print("Homming ");
+  DEBUG_PRINT("Homming ");
   for (int s=0; s < servos; s++){
       servo_target[s] = servo_home[s];
-      Serial.print(".");
+      DEBUG_PRINT(".");
     }
-   Serial.println();
+   DEBUG_PRINTLN();
   }
 
 void runTest(){
   // this one toggle the looping of the test set.
   in_loop = !in_loop;
   if (in_loop){
-    Serial.println("Running loop...");
+    DEBUG_PRINTLN("Running loop...");
     }
   else {
-    Serial.println("Stopping loop!");
+    DEBUG_PRINTLN("Stopping loop!");
   }
 }
 
@@ -438,15 +662,25 @@ void driveWheels() {
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK");
+      DEBUG_PRINTLN("NOK");
       break;
     }
   }
 
   if (arg_num == 2){
     // making the wheel drive
-    int left = -aNumber[0];
-    int right = -aNumber[1];
+    drive(aNumber[0], aNumber[1]);
+    
+    
+    
+  }
+  
+} // driveWheels
+
+void drive(int left, int right){
+  // running the motors
+   left  *= -1;
+   right *= -1;
 
       if (left < 0){
         ledcWrite(0, abs(left));
@@ -464,11 +698,83 @@ void driveWheels() {
       else {
         ledcWrite(3, abs(right));
         ledcWrite(2, 0);
-      }
-    
-  }
+      } 
   
-} // driveWheels
+} // drive
+
+void makeWalk(){
+  
+ int aNumber[2];
+  char *arg;
+  int arg_num = 0;
+  
+  for (int a=0; a<2; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber[a] = atoi(arg);    // Converts a char string to int
+      arg_num++;
+    }
+    else {
+      // we escape as no argument was found. 
+      DEBUG_PRINTLN("NOK");
+      break;
+    }
+  }
+
+  if (arg_num == 2){
+    // making the wheel drive
+    Walk(aNumber[0], aNumber[1]);
+  }  
+} // makeWalk
+
+void Walk(int spd, int dir){
+  // making aron sudo walk
+  // spd will determine the motors drive speed and the ramp
+  // dir will make the motors direction
+
+  dir = constrain(dir, -150, 150);
+  spd = constrain(spd, -150, 150);
+
+  if (abs(spd) < 10) spd = 0;
+  if (abs(dir) < 10) dir = 0;
+
+  int left  = spd + dir;
+  int right = spd - dir;
+  
+  if ( left < 0) {
+    left -= 40;
+  } else if (left > 0) left +=40;
+  
+  if (right < 0) {
+    right -= 40;
+  } else if (right > 0) right += 40;
+
+  
+//  Serial.println(left);
+//  Serial.println(right);
+  if (abs(left) > 50 || abs(right) > 50){
+    
+    float newramp = map((abs(left)+abs(right)) / 2, 40,200, 990, 900);
+//    Serial.println(newramp);
+    newramp /= 1000;
+//    Serial.println(newramp);
+    
+    for( int s=0; s < servos; s++) servo_ramp[s]= newramp;  
+    left  *= 0.75;
+    right *= 0.75;
+    drive(left, right);
+    in_loop = true;
+    }
+    else {
+      in_loop = false;
+      drive(0,0);
+      command("twist 0\n");
+    }
+   
+    
+}
 
 
 void setRamp() {
@@ -484,15 +790,15 @@ void setRamp() {
     if (arg != NULL) {
       aNumber = atof(arg);    // Converts a char string to float
       float ramp = aNumber/1000;
-      Serial.print("ramp ");
-      Serial.print(" = ");
-      Serial.println(ramp);
+      DEBUG_PRINT("ramp ");
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(ramp);
 
       for( int s=0; s < servos; s++) servo_ramp[s]= ramp;
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK no ramp argument");
+      DEBUG_PRINTLN("NOK no ramp argument");
       break;
     }
   }
@@ -513,10 +819,10 @@ void setServo() {
     if (arg != NULL) {
       theValue[a] = atoi(arg);    // Converts a char string to an integer
       arg_num++;
-      Serial.print("argument ");
-      Serial.print(a);
-      Serial.print(" = ");
-      Serial.println(theValue[a]);
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(theValue[a]);
     }
     else {
       // we escape as no argument was found. 
@@ -551,14 +857,14 @@ void setServoDelta() {
     if (arg != NULL) {
       theValue[a] = atoi(arg);    // Converts a char string to an integer
       arg_num++;
-      Serial.print("argument ");
-      Serial.print(a);
-      Serial.print(" = ");
-      Serial.println(theValue[a]);
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(theValue[a]);
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK  2 args expected");
+      DEBUG_PRINTLN("NOK  2 args expected");
       break;
     }
   }
@@ -601,14 +907,14 @@ void setAllServosDeltaHome() {
     if (arg != NULL) {
       theValue[a] = atoi(arg);    // Converts a char string to an integer
       arg_num++;
-      Serial.print("argument ");
-      Serial.print(a);
-      Serial.print(" = ");
-      Serial.println(theValue[a]);
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(theValue[a]);
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK  16 args expected");
+      DEBUG_PRINTLN("NOK  16 args expected");
       break;
     }
   }
@@ -644,14 +950,14 @@ void makeCircle() {
     if (arg != NULL) {
       theValue[a] = atoi(arg);    // Converts a char string to an integer
       arg_num++;
-      Serial.print("argument ");
-      Serial.print(a);
-      Serial.print(" = ");
-      Serial.println(theValue[a]);
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(theValue[a]);
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK  2 args expected");
+      DEBUG_PRINTLN("NOK  2 args expected");
       break;
     }
   }
@@ -687,14 +993,14 @@ void setAllServosDelta() {
     if (arg != NULL) {
       theValue[a] = atoi(arg);    // Converts a char string to an integer
       arg_num++;
-      Serial.print("argument ");
-      Serial.print(a);
-      Serial.print(" = ");
-      Serial.println(theValue[a]);
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(theValue[a]);
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK  16 args expected");
+      DEBUG_PRINTLN("NOK  16 args expected");
       break;
     }
   }
@@ -735,9 +1041,9 @@ void makeSwing(){
     
     if (arg != NULL) {
       aNumber = atoi(arg);    // Converts a char string to an integer
-      Serial.print("Swing by ");
-      Serial.print(aNumber);
-      Serial.println(" degrees"); 
+      DEBUG_PRINT("Swing by ");
+      DEBUG_PRINT(aNumber);
+      DEBUG_PRINTLN(" degrees"); 
 
       aNumber = constrain(aNumber, -70,70);
       for (int s=8; s < 12; s++) servo_target[s] = servo_home[s] + aNumber;
@@ -745,38 +1051,11 @@ void makeSwing(){
     }
     else {
       // we escape as no argument was found. 
-      Serial.println("NOK");
+      DEBUG_PRINTLN("NOK");
     }
   
 } // makeSwing
 
-
-void makeTwist(){
-  // this fuction makes a swing of given angle
-  int aNumber;
-  char *arg;
-  
-    arg = sCmd.next();
-    
-    if (arg != NULL) {
-      aNumber = atoi(arg);    // Converts a char string to an integer
-      Serial.print("Swing by ");
-      Serial.print(aNumber);
-      Serial.println(" degrees"); 
-
-      aNumber = constrain(aNumber, -70,70);
-      servo_target[8] = servo_home[8] + aNumber;
-      servo_target[9] = servo_home[9] + aNumber;
-      servo_target[10] = servo_home[10] - aNumber;
-      servo_target[11] = servo_home[11] - aNumber;
-      
-    }
-    else {
-      // we escape as no argument was found. 
-      Serial.println("NOK");
-    }
-  
-} // makeTwist
 
 
 void processCommand() {
@@ -793,10 +1072,10 @@ void processCommand() {
     if (arg != NULL) {
       aNumber = atoi(arg);    // Converts a char string to an integer
       arg_num++;
-      Serial.print("argument ");
-      Serial.print(a);
-      Serial.print(" = ");
-      Serial.println(aNumber);
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(aNumber);
     }
     else {
       // we escape as no argument was found. 
@@ -804,9 +1083,9 @@ void processCommand() {
     }
   }
   
-Serial.print("Recieved ");
-Serial.print(arg_num);
-Serial.println(" arguments");
+DEBUG_PRINT("Recieved ");
+DEBUG_PRINT(arg_num);
+DEBUG_PRINTLN(" arguments");
   
 } // processCommands
 

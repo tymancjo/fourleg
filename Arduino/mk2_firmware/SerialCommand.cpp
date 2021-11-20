@@ -127,6 +127,9 @@ void SerialCommand::readSerial() {
   }
 }
 
+
+
+
 /*
  * Clear the input buffer.
  */
@@ -141,4 +144,71 @@ void SerialCommand::clearBuffer() {
  */
 char *SerialCommand::next() {
   return strtok_r(NULL, delim, &last);
+}
+
+
+
+
+void SerialCommand::readStr(char *message) {
+  int len = strlen(message);
+  #ifdef SERIALCOMMAND_DEBUG
+    Serial.println(message);
+    Serial.println(len);
+  #endif
+  clearBuffer();
+  for (int k=0; k < len; k++) {
+    char inChar = message[k];   // Read single character from input message
+    
+    #ifdef SERIALCOMMAND_DEBUG
+      Serial.print(inChar);   // Echo back to serial stream
+    #endif
+
+    if (inChar == term) {     // Check for the terminator (default '\r') meaning end of command
+      #ifdef SERIALCOMMAND_DEBUG
+        Serial.print("Received: ");
+        Serial.println(buffer);
+      #endif
+
+      char *command = strtok_r(buffer, delim, &last);   // Search for command at start of buffer
+      if (command != NULL) {
+        boolean matched = false;
+        for (int i = 0; i < commandCount; i++) {
+          #ifdef SERIALCOMMAND_DEBUG
+            Serial.print("Comparing [");
+            Serial.print(command);
+            Serial.print("] to [");
+            Serial.print(commandList[i].command);
+            Serial.println("]");
+          #endif
+
+          // Compare the found command against the list of known commands for a match
+          if (strncmp(command, commandList[i].command, SERIALCOMMAND_MAXCOMMANDLENGTH) == 0) {
+            #ifdef SERIALCOMMAND_DEBUG
+              Serial.print("Matched Command: ");
+              Serial.println(command);
+            #endif
+
+            // Execute the stored handler function for the command
+            (*commandList[i].function)();
+            matched = true;
+            break;
+          }
+        }
+        if (!matched && (defaultHandler != NULL)) {
+          (*defaultHandler)(command);
+        }
+      }
+      clearBuffer();
+    }
+    else if (isprint(inChar)) {     // Only printable characters into the buffer
+      if (bufPos < SERIALCOMMAND_BUFFER) {
+        buffer[bufPos++] = inChar;  // Put character into buffer
+        buffer[bufPos] = '\0';      // Null terminate
+      } else {
+        #ifdef SERIALCOMMAND_DEBUG
+          Serial.println("Line buffer is full - increase SERIALCOMMAND_BUFFER");
+        #endif
+      }
+    }
+  }
 }
