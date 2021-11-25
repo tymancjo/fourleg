@@ -11,15 +11,32 @@ const char index_html[] PROGMEM = R"rawliteral(
 <body  style="position: fixed; font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif ;
 color:rgb(128, 128, 128);
 font-size: xx-large;">
+<center>
     <h1 style="text-align:center">
         Aron Jog </h1>
     <p style="text-align: center;">
         FB: <span id="speed"> </span> 
         LR: <span id="angle"> </span>
     </p>
-    <canvas id="canvas" name="game"></canvas>
+    <p>Move modes:</p>
 
-    
+      <div>
+        <input type="radio" id="m1" name="mode" value="w"
+               checked>
+        <label for="m1">Walk</label>
+
+        <input type="radio" id="m2" name="mode" value="circ">
+        <label for="m2">Swing</label>
+      
+        <input type="radio" id="m3" name="mode" value="up">
+        <label for="m3">Bounce</label>
+      
+        <input type="radio" id="m4" name="mode" value="twist">
+        <label for="m4">Twist</label>
+      </div>
+
+      <canvas id="canvas" name="game"></canvas>
+ </center>    
 <script>
   var gateway = `ws://${window.location.hostname}/ws`;
   var websocket;
@@ -60,7 +77,49 @@ font-size: xx-large;">
   }
 
   function send(x,y){
+
+            var command = "w";
+            var the_mode = document.querySelector('input[name="mode"]:checked'); 
+            if(the_mode) {
+              command = the_mode.value;
+              }
+
             var data = "w "+x+" "+y+"\n";
+            
+            switch (command) {
+                        case 'w':
+                          data = "w "+x+" "+y+"\n";
+                          break;
+                        
+                        case 'circ':
+                          x = -Math.round( 40*x/100 );
+                          y =  Math.round( 50*y/100 );
+                          data = "circ "+x+" "+y+"\n";
+                          break;
+                          
+                        case 'up':
+                          var up = Math.round( 70*x/100 );
+                          var fr = Math.round( 70*y/100 );
+
+                          x = up + fr;
+                          y = up - fr;
+
+                          
+                          data = "up "+x+" "+y+"\n";
+                          break;  
+      
+                        case 'twist':
+                          x = Math.round( 35*x/100 );
+                          y = Math.round( 35*y/100 );
+                          data = "twist "+y+"\n";
+                          break;
+                        
+                        default:
+                          console.log(`Sorry, we are out of ${expr}.`);
+                      } 
+              
+            
+            
 //            data = JSON.stringify(data);
             console.log(data);
             websocket.send(data);
@@ -98,8 +157,8 @@ font-size: xx-large;">
 
         var width, height, radius, x_orig, y_orig;
         function resize() {
-            width = window.innerWidth;
-            radius = 200;
+            width = window.innerWidth / 2;
+            radius = 100;
             height = radius * 6.5;
             ctx.canvas.width = width;
             ctx.canvas.height = height;
@@ -192,13 +251,23 @@ font-size: xx-large;">
                     x = radius * Math.cos(angle) + x_orig;
                     y = radius * Math.sin(angle) + y_orig;
                     joystick(x, y);
+//                    x = 2 * x;
+//                    y = 2 * y
                 }
-
-            
+              
+//                    joystick(coord.x, coord.y);
+//                    x = Math.min(100, Math.max(-100, x - x_orig));
+//                    y = Math.min(100, Math.max(-100, y - y_orig));
+                    x = x - x_orig;
+                    y = y - y_orig;
+                
+                                
                 getPosition(event);
 
-                var lr = Math.round(100 * (x - x_orig) / radius);
-                var fb = Math.round(100 * (y - y_orig) / radius);
+                var lr = Math.round(100 * (x) / radius);
+                var fb = Math.round(100 * (y) / radius);
+                    lr = lr > 100 ? 100 : lr < -100 ? -100 : lr;
+                    fb = fb > 100 ? 100 : fb < -100 ? -100 : fb;
 
                 
 

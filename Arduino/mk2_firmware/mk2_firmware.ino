@@ -452,31 +452,47 @@ void makeMove(){
 
 void makeUp(){
   // rising or lowering all legs. 
-  int aNumber;
+  int aNumber[2];
   char *arg;
+  int arg_num = 0;
   
+  for (int a=0; a<2; a++){
+    // shifting the index
     arg = sCmd.next();
     
     if (arg != NULL) {
-      aNumber = atoi(arg);    // Converts a char string to an integer
-      DEBUG_PRINT("Risig by ");
-      DEBUG_PRINT(aNumber);
-      DEBUG_PRINTLN(" degrees"); 
+      aNumber[a] = atoi(arg);    // Converts a char string to int
+      arg_num++;
+    }
+    else {
+      // we escape as no argument was found. 
+      DEBUG_PRINTLN("NOK");
+      break;
+    }
+  }
 
-      aNumber = constrain(aNumber, -40,40);
-      // modyfing the home setting
-      for (int s=0; s < 8; s+=2) {
-      //  servo_target[s] = servo_target[s] - aNumber + (servo_zero[s] - servo_target[s]);
-        servo_up[s] = -aNumber;
-      }
+  if (arg_num == 2){
+    // making legs up down  
+
+      aNumber[0] = constrain(aNumber[0], -40,40);
+      aNumber[1] = constrain(aNumber[1], -40,40);
       
-      float aNumberF = -1.0 * (aNumber / 3.5); // to compensate the front back when we rise or lower
-      aNumber = (int) aNumberF;
-      DEBUG_PRINTLN(aNumber);
-      for (int s=1; s < 8; s+=2) {
-      //  servo_target[s] = servo_target[s] - aNumber + (servo_zero[s] - servo_target[s]);
-        servo_up[s] = -aNumber;
-      }
+      
+        servo_up[0] = -aNumber[1];
+        servo_up[2] = -aNumber[1];
+        
+        servo_up[4] = -aNumber[0];
+        servo_up[6] = -aNumber[0];
+        
+      
+      
+//      float aNumberF = -1.0 * (aNumber / 3.5); // to compensate the front back when we rise or lower
+//      aNumber = (int) aNumberF;
+//      DEBUG_PRINTLN(aNumber);
+//      for (int s=1; s < 8; s+=2) {
+//      //  servo_target[s] = servo_target[s] - aNumber + (servo_zero[s] - servo_target[s]);
+//        servo_up[s] = -aNumber;
+//      }
 
       makeMove();
       
