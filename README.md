@@ -1,13 +1,52 @@
 # FLR „Aron”
 
 # Mk2 is on the way
-Currently a new version is in the developement, hence all the code and data for the mk1 were moved ot the mk1 folder. 
+Currently a new version is in the development, hence all the code and data for the mk1 were moved ot the mk1 folder. ![Aron Mk2](doc/img/mk2_wheels.jpg)
 
-The info about the mk2 will be updated here soon.
-For the moment please take a look at the vide playlist:
+## Mk2 idea
+The main idea behind the mk2 is to add the 3th DOF for the leg. It is made by use of one additional servo for each leg. It is now heavily based on the 3d printed parts. 
+
+## Mechanical model
+The - not so fully finished - 3d model made in Fusion 360 is available in the **3D_model** folder. It covers all the required geometry in the form that was used for the build. 
+
+![Aron sketch](doc/img/sideview.png)
+
+However some leg parts need to be printed as they are and as a mirrored ones - for the other side. 
+As this project will move forward - the model will be updated to the full one. 
+
+Additionally all STL files (for both sides left and right) that were used for printing and build are in the **3D_model/STL** folder.
+
+
+## General BOM 
+
+To build the Aron the following components are needed:
+
+- The 3D printed parts
+    - 2x End Mount
+    - 2x Middle Support
+    - 4x Leg Bracket
+    - Knee LR x2
+    - Motor R x2
+    - Motor L x2
+    - Top LR x2
+
+- The ESP32 as a main control unit
+- 2x PCA9685 to control the servos
+- DC/DC converter for powering servo
+- DC/DC converter for the electronic
+- 2 channel H control for the DC motors
+- BLT 05 BlueTooth unit 
+
+## The firmware
+The main piece of software that is controlling the Aron is the **mk2_firmware** located in the **Arduino** folder. 
+
+## Lastly:
+> This is a work in progress project...
+
+If you are interested please take a look at the vide playlist:
 [YouTube Playlist](https://www.youtube.com/watch?v=CJRxDc_nvHY&list=PL9g9iwA2sCQyebAMLQ3WOS7w4_cqAUxdq)
 
-![Aron Mk2](doc/img/mk2_wheels.jpg)
+
 
 #
 #

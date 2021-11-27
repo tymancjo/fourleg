@@ -25,9 +25,12 @@ SerialCommand sCmd;     // The SerialCommand object
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <ArduinoJson.h>
+// #include <ArduinoJson.h>
 
-#include "html.h"
+// to be able use filesystem
+#include "SPIFFS.h"
+
+//#include "html.h"
 #include "secret.h"
 
 // Replace with your network credentials
@@ -255,6 +258,15 @@ void setup() {
 
   pwm2.setOscillatorFrequency(27000000);
   pwm2.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
+
+
+  // checking the file system
+  if(!SPIFFS.begin(true)){
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+
+  
     // Preparing static IP adress 
     IPAddress local_ip0(192,168,0,123);
     IPAddress gateway0(192,168,0,1);
@@ -311,8 +323,14 @@ void setup() {
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/html", index_html, processor);
+//    request->send_P(200, "text/html", index_html, processor);
+    request->send(SPIFFS, "/index.html", "text/html");
   });
+
+   server.on("/img", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/aronmk2.jpg", "image/jpeg");
+  });
+ 
 
   // Start server
   server.begin();
