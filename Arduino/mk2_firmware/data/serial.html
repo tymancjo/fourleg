@@ -23,7 +23,8 @@ font-size: xx-large;  overflow: hidden;">
         margin: 8px 0;
         box-sizing: border-box;
         box-shadow:inset 0 -0.6em 0 -0.35em rgba(0,0,0,0.17);
-        font-size: 16pt;">
+        font-size: 16pt;"
+        onkeydown="if (event.keyCode == 13) { send_data(); return false; }">
 
         <input type="button" id="clear" name="ButtonClear" value="X"
         style = "display:inline-block;
@@ -143,7 +144,11 @@ font-size: xx-large;  overflow: hidden;">
   function send(command){
         var data = command + "\n";
             var theDIV = document.getElementById('history');
-            var new_line = command + " " + "<input type=\'button\' value=\'resend\' onClick=\'send(\""+command+"\")\'>";
+            
+            var new_line = "<input type=\"button\" value=\"bring\" onClick=\"document.getElementById(\'InputBox\').value=\'";
+            new_line += command + "\'\">";
+            new_line += " " + command + " ";
+            new_line += "<input type=\"button\" value=\"resend\" onClick=\"send(\'"+command+"\')\">";
             theDIV.innerHTML = new_line + "<br>" + theDIV.innerHTML;
             console.log(data);
             websocket.send(data);
