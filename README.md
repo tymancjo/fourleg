@@ -40,6 +40,54 @@ To build the Aron the following components are needed:
 ## The firmware
 The main piece of software that is controlling the Aron is the **mk2_firmware** located in the **Arduino** folder. 
 
+## The interface
+
+The Aron Mk2 in basic level can be controlled by the set of serial commands.
+Those can be sent to the ESP32 main UART via either the USB connection of the module or via the used BT module. 
+
+For the convenience and ease of use additional layer in form of Web Control Interface is added. It is made out of two main interfaces - the Jog and the WebSerial.
+
+![web interfaces](doc/img/webint.jpg)
+
+### The Aron Jog 
+This interface is aimed for a real time remote control and allows to use the on screen joy to set live the behavior for:
+
+- Walking around
+- Swinging front and sideways
+- Bounce up down
+- Twist around.
+
+This interface is available under:
+> http://ARON_PI/
+
+### The WebSerial
+This is a basic web to serial transciver.
+Works the same way as sending the serial commands directly via UART or BLE. Just is is available a sa webpage under:
+> http://ARON_IP/serial
+
+## Available Commands
+
+At this stage the supported commands are:
+
+  - test      // run the simple test sequence - just moves all servos in loop.
+  - power     // toggle the power out
+  - show      // displaying back the current angles of all servos
+  
+  - h        // resetting the servos to home position
+  - reset     // resetting the servos home to initial position - but no move make
+  - ramp XXX     // set up the ramp value input as 990 gives 0.99 ramp etc.
+  
+  - circ XX YY   // moving front back (XX) left right(YY) by 2 arguments 
+  - move      // triggering to make move to current incremental set
+  - up FF BB // lowering or rising front (FF) and back (BB) legs by given value (-40 to 40)
+  - leg L FF UP 0       // set data for single leg incremental model move - L leg number (1,2,3 or 4) 
+  - drv LLL RRR // move the wheels by 2 params in range -255 to 255 (0 is strop) for Left (LLL) and Right (RRR) wheels
+  - s       // full stop for wheels
+  - twist TT  // twist - to make twisted pose - param in range -50 to 50
+  - walk        // the sudo walk command
+  - w       // the sudo walk command
+  - fake        // to test the fake serial data
+
 ## Lastly:
 > This is a work in progress project...
 

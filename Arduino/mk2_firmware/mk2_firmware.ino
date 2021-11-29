@@ -52,32 +52,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   AwsFrameInfo *info = (AwsFrameInfo*)arg;
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
     data[len] = 0;
-    
-//      Serial.println("got: ");
-//      Serial.println((char*)data);
-      
       command((char*)data);
-
-      
-
-        
-//      StaticJsonDocument<300> doc; //Memory pool
-//
-//      
-//      // Deserialize the JSON document
-//      DeserializationError error = deserializeJson(doc, (char*)data);
-//
-//      // Test if parsing succeeds.
-//      if (error) {
-//        Serial.print(F("deserializeJson() failed: "));
-//        Serial.println(error.f_str());
-//      } 
-//      else {
-//            // reading form the websocket data
-//            char* cmd = doc["cmd"];
-//            // sending it as a fake uart stuff.
-//            command(cmd);
-//      }   
   }
 }
 
@@ -175,11 +150,11 @@ bool power = false;
 void setup() {
 //  Serial.begin(115200);
   Serial.begin(9600);
-  Serial.println("Aron mk2 Firmvare System");
+  Serial.println("Aron mk2 Firmware System");
   pinMode(LEDPIN, OUTPUT);
   pinMode(POWEROUT, OUTPUT);
 
-  // Preparing the PWM channesl for the motors
+  // Preparing the PWM channels for the motors
   ledcAttachPin(M1A, 0); // assign a led pins to a channel
   ledcAttachPin(M1B, 1); // assign a led pins to a channel
   ledcAttachPin(M2A, 2); // assign a led pins to a channel
@@ -218,11 +193,6 @@ void setup() {
   // sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
   // sCmd.addCommand("ad", setAllServosDelta);   // move all by individual deltas
   // sCmd.addCommand("adh", setAllServosDeltaHome);  // move all by individual deltas from home position
-  
-  
-  // sCmd.addCommand("swing", makeSwing);        // making a swing to the side by 1 argument
-  // sCmd.addCommand("twist", makeTwist);        // making a twist to the side by 1 argument
-  // sCmd.addCommand("c",  processCommand);      // Converts two arguments to integers and echos them back
   
   sCmd.setDefaultHandler(unrecognized);      // Handler for command that isn't matched  (says "What?")
   
@@ -327,6 +297,9 @@ void setup() {
     request->send(SPIFFS, "/index.html", "text/html");
   });
 
+  server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/serial.html", "text/html");
+  });
    server.on("/img", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/aronmk2.jpg", "image/jpeg");
   });
@@ -337,7 +310,7 @@ void setup() {
 
 
   Serial.print("Starting up");
-  for (int k=0; k < 21; k++){
+  for (int k=0; k < 21; k+=4){
     digitalWrite(LEDPIN, HIGH);
     Serial.print(".");
     delay(400 - k*20);
@@ -349,13 +322,17 @@ void setup() {
 }
 
 // simple loop moving test - usefull for hardware verification.
+const int sequences = 1;
+const int max_steps = 30;
 int test_step = 0;
-const int test_steps = 2;
-int test_pos[test_steps][servos] = {
-//{90,90,90,90,90,90,90,90,120,60,110,60,90,90,90,90},
-{70,70,110,110,110,110,70,70,140,80,90,40,90,90,90,90},
-//{90,90,90,90,90,90,90,90,120,60,110,60,90,90,90,90},
-{110,110,70,70,70,70,110,110,100,40,130,80,90,90,90,90}
+int set_sequence = 0;
+const int test_steps[sequences] = {2};
+
+int test_pos[sequences][max_steps][servos] = {
+  { // first sequence
+  {70,70,110,110,110,110,70,70,140,80,90,40,90,90,90,90},
+  {110,110,70,70,70,70,110,110,100,40,130,80,90,90,90,90}
+  }
 };
 
 
@@ -378,11 +355,11 @@ if (move_done && in_loop) {
   DEBUG_PRINTLN(test_pos[test_step]);
   
   for (int s=0; s < servos; s++){
-    servo_target[s] = test_pos[test_step][s];
+    servo_target[s] = test_pos[set_sequence][test_step][s];
   }
   test_step++;
   
-  if (test_step == test_steps){
+  if (test_step == test_steps[set_sequence]){
     test_step = 0;
   }
 } // end of servo testing
@@ -452,6 +429,7 @@ void fakeData(){
 }
 
 void command(char *cmd){
+  Serial.println(cmd);
   sCmd.readStr(cmd);
 }
 
