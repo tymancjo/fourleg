@@ -21,8 +21,12 @@ font-size: xx-large;  overflow: hidden;">
     </p>
 
       <div>
-        <input type="radio" id="m1" name="mode" value="w"
+        <input type="radio" id="m0" name="mode" value="l"
                checked>
+        <label for="m0">Look</label>
+
+        <input type="radio" id="m1" name="mode" value="w"
+               >
         <label for="m1">Walk</label>
 
         <input type="radio" id="m2" name="mode" value="circ">
@@ -38,6 +42,26 @@ font-size: xx-large;  overflow: hidden;">
       <canvas id="canvas" name="game"></canvas>
       <br>
       <img src="img" width="30%">
+      <p>
+
+        <input type="button" id="button" name="ButtonMode" value="Mode"
+        style = "display:inline-block;
+        padding:0.7em 1.4em;
+        margin:0 0.3em 0.3em 0;
+        border-radius:0.15em;
+        box-sizing: border-box;
+        text-decoration:none;
+        font-family:'Roboto',sans-serif;
+        text-transform:uppercase;
+        font-weight:400;
+        font-size: 18pt;
+        color:#FFFFFF;
+        background-color:#a1aac1;
+        box-shadow:inset 0 -0.6em 0 -0.35em rgba(0,0,0,0.17);
+        text-align:center;
+        position:relative;"
+        >
+      </p>
  </center> 
  </div>   
 <script>
@@ -76,7 +100,7 @@ font-size: xx-large;  overflow: hidden;">
     document.getElementById('button').addEventListener('click', toggle);
   }
   function toggle(){
-    websocket.send('toggle');
+    websocket.send('mode \n');
   }
 
   function send(x,y){
@@ -90,6 +114,12 @@ font-size: xx-large;  overflow: hidden;">
             var data = "w "+x+" "+y+"\n";
             
             switch (command) {
+                        case 'l':
+                          A = -Math.round( 50*y/100 );
+                          B =  Math.round( 50*x/100 );
+                          data = "look "+A+" "+B+"\n";
+                          break;
+                          
                         case 'w':
                           data = "w "+x+" "+y+"\n";
                           break;

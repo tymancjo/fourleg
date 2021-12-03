@@ -105,6 +105,11 @@ Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60);
 // our servo # counter
 uint8_t servonum = 0;
 const uint8_t servos = 16;
+uint8_t servo_delay = 20;
+
+// float servo_zero[servos]    = {   90,90,90,90,  90,90,90,90,  90,90,90,90,  90,90,90,90 };
+// float servo_target[servos]  = {   90,90,90,90,  90,90,90,90,  90,90,90,90,  90,90,90,90 };
+// float servo_home[servos]    = {   90,90,90,90,  90,90,90,90,  90,90,90,90,  90,90,90,90 };
 
 float servo_zero[servos]    = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
 float servo_target[servos]  = {   90,90,90,90,  90,90,90,90,  110,70,110,70,  90,90,90,90 };
@@ -119,9 +124,11 @@ float servo_legs[servos]    = {   0,0,0,0,  0,0,0,0,  0,0,0,0,  0,0,0,0 };
 
 float servo_current[servos];
 float servo_ramp[servos];
+float servo_step[servos]    = {   2,2,2,2,  2,2,2,2,  2,2,2,2,  2,2,2,2 };
 
 bool move_done = false;
 bool in_loop = false;
+bool in_linear = false;
 int waiting = 0;
 
 unsigned long now = millis();
@@ -186,8 +193,12 @@ void setup() {
   sCmd.addCommand("twist", makeTwist);        // twist - to make a turning - experimental  
   sCmd.addCommand("walk", makeWalk);          // the sudo walk command
   sCmd.addCommand("w", makeWalk);             // the sudo walk command
+  sCmd.addCommand("look", lookAround);        // looking around in LR TD
 
   sCmd.addCommand("fake", fakeData);          // to test the fake serial data
+  sCmd.addCommand("mode", toogleMmode);       // toggle the interpoloation mode
+  sCmd.addCommand("step", setStepSize);       // to set the single step size in degrees
+  sCmd.addCommand("delay", setDelay);         // to set the each loop servos delay
   
   // sCmd.addCommand("s", setServo);             // set a single servo command
   // sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
@@ -368,7 +379,7 @@ if (move_done && in_loop) {
 
   
 // making the servos moves - the main loop action
-if (now > last + 2){
+if (now > last + servo_delay){
   last = now;  
   move_done = true;
   for (int s=0; s < servos; s++){
@@ -377,7 +388,27 @@ if (now > last + 2){
     if (abs(servo_target[s] - servo_current[s]) > 1){
       // if the servo is away more than a 1 degree we move
       move_done = false;
-      servo_current[s] = servo_ramp[s] * servo_current[s] + (1 - servo_ramp[s]) * servo_target[s];
+      if (in_linear){
+        // procedure for the linera move with constant step
+        // figuring out the direction
+        float the_step = 0.0;
+        if (servo_current[s] < servo_target[s] - servo_step[s]){
+            the_step = servo_step[s];
+        }
+        else if (servo_current[s] > servo_target[s] + servo_step[s])
+        {
+            the_step = -servo_step[s];
+        } 
+        else 
+        {
+            the_step = servo_target[s] - servo_current[s];
+        }
+        
+        servo_current[s] += the_step;
+      }
+      else{
+        servo_current[s] = servo_ramp[s] * servo_current[s] + (1 - servo_ramp[s]) * servo_target[s];
+      }
       set_servo(s, servo_current[s]);
 
     }
@@ -432,6 +463,95 @@ void command(char *cmd){
   Serial.println(cmd);
   sCmd.readStr(cmd);
 }
+
+void toogleMmode(){
+  // switching the move interpolation mode
+
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      if (aNumber > 0) {
+        in_linear = true;
+        }
+      else {
+        in_linear = false;
+      }
+    } else {
+      in_linear = !in_linear;
+    }
+    Serial.println(in_linear);
+
+}
+
+void lookAround(){
+  // looking around in LR and UPDN 
+  int aNumber[2];
+  char *arg;
+  int arg_num = 0;
+  
+  for (int a=0; a<2; a++){
+    // shifting the index
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber[a] = atoi(arg);    // Converts a char string to int
+      arg_num++;
+    }
+    else {
+      // we escape as no argument was found. 
+      DEBUG_PRINTLN("NOK");
+      break;
+    }
+  }
+
+  if (arg_num == 2){
+    // making legs up down  
+
+      aNumber[0] = -1*constrain(aNumber[0], -50,50);
+      aNumber[1] = -1*constrain(aNumber[1], -50,50);
+      
+      // the up down pose
+        servo_up[0] = -aNumber[1];
+        servo_up[2] = -aNumber[1];
+        
+        servo_up[4] = aNumber[1];
+        servo_up[6] = aNumber[1];
+        
+      // left right
+      // it's just like the swing move
+      servo_lr[8]  =  aNumber[0] / 2;
+      servo_lr[9]  =  aNumber[0] / 2;
+      servo_lr[10] =   aNumber[0];
+      servo_lr[11] =   aNumber[0];
+
+      
+      // servo_lr[0] = -aNumber[0];
+      // servo_lr[1] = -aNumber[0];
+
+      // servo_lr[2] = aNumber[0];
+      // servo_lr[3] = aNumber[0];
+
+      // servo_lr[4] = aNumber[0];
+      // servo_lr[5] = aNumber[0];
+
+      // servo_lr[6] = -aNumber[0];
+      // servo_lr[7] = -aNumber[0];
+
+      // executing the changes
+      makeMove();
+      
+    }
+    else {
+      // we escape as no argument was found. 
+      DEBUG_PRINTLN("NOK");
+    }
+  
+} // makeUp
+
 
 void makeMove(){
   // the incremental model moves
@@ -500,6 +620,55 @@ void makeUp(){
   
 } // makeUp
 
+
+void setStepSize(){
+  // making a Twist move - may be dangerous!! 
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      DEBUG_PRINT("Twist by ");
+      DEBUG_PRINT(aNumber);
+      DEBUG_PRINTLN(" degrees"); 
+
+      aNumber = constrain(aNumber, 1,30);
+      float new_step = aNumber * 0.1;
+      Serial.println(new_step);
+      for (int s=0; s<servos; s++){
+        servo_step[s] = new_step;
+      }
+      
+    }
+    else {
+      // we escape as no argument was found. 
+      DEBUG_PRINTLN("NOK");
+    }
+  
+} // 
+
+
+void setDelay(){
+  // making a Twist move - may be dangerous!! 
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      aNumber = constrain(aNumber, 10,1000);
+      servo_delay = aNumber;
+      
+    }
+    else {
+      // we escape as no argument was found. 
+      DEBUG_PRINTLN("NOK");
+    }
+  
+} // makeTwist
 
 void makeTwist(){
   // making a Twist move - may be dangerous!! 
