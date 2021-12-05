@@ -128,7 +128,7 @@ float servo_step[servos]    = {   2,2,2,2,  2,2,2,2,  2,2,2,2,  2,2,2,2 };
 
 bool move_done = false;
 bool in_loop = false;
-bool in_linear = false;
+bool in_linear = true;
 int waiting = 0;
 
 unsigned long now = millis();
@@ -511,35 +511,40 @@ void lookAround(){
   if (arg_num == 2){
     // making legs up down  
 
-      aNumber[0] = -1*constrain(aNumber[0], -50,50);
-      aNumber[1] = -1*constrain(aNumber[1], -50,50);
+      aNumber[0] = -1*constrain(aNumber[0], -40,40);
+      aNumber[1] = -1*constrain(aNumber[1], -40,40);
       
       // the up down pose
-        servo_up[0] = -aNumber[1];
-        servo_up[2] = -aNumber[1];
+        servo_up[0] = -aNumber[1] * 0.8;
+        servo_up[2] = -aNumber[1] * 0.8;
         
         servo_up[4] = aNumber[1];
         servo_up[6] = aNumber[1];
         
       // left right
       // it's just like the swing move
-      servo_lr[8]  =  aNumber[0] / 2;
-      servo_lr[9]  =  aNumber[0] / 2;
-      servo_lr[10] =   aNumber[0];
-      servo_lr[11] =   aNumber[0];
+      // servo_lr[8]  =  aNumber[0] / 2;
+      // servo_lr[9]  =  aNumber[0] / 2;
+      // servo_lr[10] =   aNumber[0];
+      // servo_lr[11] =   aNumber[0];
 
-      
-      // servo_lr[0] = -aNumber[0];
-      // servo_lr[1] = -aNumber[0];
+      // just like the twist
+      servo_lr[8]  =  aNumber[0];
+      servo_lr[9]  =  aNumber[0];
+      servo_lr[10] =   -aNumber[0];
+      servo_lr[11] =   -aNumber[0];
 
-      // servo_lr[2] = aNumber[0];
-      // servo_lr[3] = aNumber[0];
+      servo_lr[0] = -aNumber[0];
+      servo_lr[1] = -aNumber[0];
 
-      // servo_lr[4] = aNumber[0];
-      // servo_lr[5] = aNumber[0];
+      servo_lr[2] = aNumber[0];
+      servo_lr[3] = aNumber[0];
 
-      // servo_lr[6] = -aNumber[0];
-      // servo_lr[7] = -aNumber[0];
+      servo_lr[4] = aNumber[0];
+      servo_lr[5] = aNumber[0];
+
+      servo_lr[6] = -aNumber[0];
+      servo_lr[7] = -aNumber[0];
 
       // executing the changes
       makeMove();
