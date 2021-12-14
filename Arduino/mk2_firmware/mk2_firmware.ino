@@ -28,6 +28,7 @@ SerialCommand sCmd;     // The SerialCommand object
 // #include <ArduinoJson.h>
 
 // to be able use filesystem
+#include "FS.h"
 #include "SPIFFS.h"
 
 //#include "html.h"
@@ -177,8 +178,12 @@ void setup() {
   // Setup callbacks for SerialCommand command
   
   sCmd.addCommand("test", runTest);           // run the simple test sequence - just moves all servos in loop.
+  sCmd.addCommand("save", saveStep);          // adding current position as new step in selected sequence
+  sCmd.addCommand("del", delLastStep);           // removing last step from given sequence
   sCmd.addCommand("power", togglePower);      // toggle the power out
   sCmd.addCommand("show", showAngles);        // displaying back the current angles of all servos
+  sCmd.addCommand("write", saveToFile);       // saving the sequences to file
+  sCmd.addCommand("read", loadFromFile);      // load the sequences form file
   
   sCmd.addCommand("h", makeHoming);           // ressetting the servos to home position
   sCmd.addCommand("reset", makeZero);         // ressetting the servos home to initial position - but no move make
@@ -333,13 +338,13 @@ void setup() {
 }
 
 // simple loop moving test - usefull for hardware verification.
-const int sequences = 1;
-const int max_steps = 30;
-int test_step = 0;
-int set_sequence = 0;
-const int test_steps[sequences] = {2};
+const int sequences = 10; // the total numbeer of available sequences
+const int max_steps = 30; // the max number of steps in each sequence
+uint8_t test_step = 0;
+uint8_t set_sequence = 0;
+uint8_t test_steps[sequences] = {2,0,0,0,0,0,0,0,0,0};
 
-int test_pos[sequences][max_steps][servos] = {
+uint8_t test_pos[sequences][max_steps][servos] = {
   { // first sequence
   {70,70,110,110,110,110,70,70,140,80,90,40,90,90,90,90},
   {110,110,70,70,70,70,110,110,100,40,130,80,90,90,90,90}
@@ -357,7 +362,7 @@ void loop() {
 
   
 // testing servo position loop.
-if (move_done && in_loop) {
+if (move_done && in_loop && test_steps[set_sequence]>0) {
   
   DEBUG_PRINTLN("Move is done...");
   DEBUG_PRINT("Test step ");
@@ -423,6 +428,105 @@ if (now > last + servo_delay){
 
 
 // Functions
+
+void saveToFile(){
+// conceptual idea how to write the sequences to the file
+// it's just a sudo code
+// 
+// for sequence in sequnces:
+//     file.write(test_steps[sequence]) // writing down the numer of steps.
+//     for step in test_steps[sequence]:
+//         for s in test_pos[sequence][step]:
+//             file.write(test_pos[sequence][step][s])
+
+    // let's open the file for writing
+    File frame = SPIFFS.open("/frame.bin", "wb+");
+    if (!frame) {
+      Serial.println("file open failed");
+    } else {
+      Serial.println("file opened");
+      Serial.printf("Start Position = %u \n", frame.position());    // Prints what position in the file we're in
+      // since we open it we can now write it down
+      for (byte seq=1; seq < sequences; seq++)
+        {
+        // checking if there is anything to save...
+        if(test_steps[seq] > 0){
+          frame.write(test_steps[seq]); // Saving the number of steps in seq.
+          Serial.print("Test seq of: ");
+          Serial.println(test_steps[seq]);
+          for (byte st=0; st < test_steps[seq]; st++ )
+          {
+            for (byte ser=0; ser < servos; ser++){
+                frame.write(test_pos[seq][st][ser]); // Saving the number of steps in seq.
+              }
+          }
+        } else {
+          Serial.println("Empty sequence..skip.");
+        }
+      }
+      frame.close();
+    }
+}
+
+void loadFromFile(){
+
+    File frame = SPIFFS.open("/frame.bin", "rb");
+    if (!frame) {
+      Serial.println("file open failed");
+    } else {
+      Serial.println("file opened");
+      size_t filesize = frame.size(); //the size of the file in bytes
+      if (filesize > 0){
+        int pos = 1;
+
+        while (pos < filesize){
+            uint8_t this_read;
+            frame.read(&this_read, sizeof(this_read));  
+            if ( this_read > 0){
+              Serial.print("Set of steps:");
+              Serial.println((int)this_read);
+              // if the read byte shows some steps we continue
+              for ( byte step=0; step < this_read; step ++){
+                // we read the amount of steps that was in the initial byte
+                // and we do it for each servo
+                Serial.print(step);
+                Serial.print(": ");
+
+                for (byte servo=0; servo < servos; servo++){
+                  uint8_t servo_read;
+                  frame.read(&servo_read, sizeof(servo_read));  
+                  Serial.print((int)servo_read);
+                  Serial.print(", ");
+                  pos++;
+                }
+                Serial.println();
+              }
+
+            } else {
+              break;
+            }
+
+        }
+      }
+      frame.close();
+    }
+}
+
+void appendFile(fs::FS &fs, const char * path, const char * message){
+    Serial.printf("Appending to file: %s\r\n", path);
+
+    File file = fs.open(path, FILE_APPEND);
+    if(!file){
+        Serial.println("- failed to open file for appending");
+        return;
+    }
+    if(file.print(message)){
+        Serial.println("- message appended");
+    } else {
+        Serial.println("- append failed");
+    }
+    file.close();
+}
 
 void set_servo(int ser, float angle){
   // function to simplify setting the servo positions
@@ -825,19 +929,72 @@ void makeHoming(){
 
 void runTest(){
   // this one toggle the looping of the test set.
-  in_loop = !in_loop;
-  if (in_loop){
-    DEBUG_PRINTLN("Running loop...");
+
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next();
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      if (aNumber > -1 && aNumber < sequences) set_sequence = aNumber;
+      test_step = 0;
+      in_loop = true;
+    } else {
+      Serial.println('NOK');
     }
-  else {
-    DEBUG_PRINTLN("Stopping loop!");
-  }
+}
+
+void saveStep(){
+  // this saves current position as a new step in the selected sequence
+
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next(); // getting the sequence number from 1 - 0 cant be modded
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      if (aNumber > 0 && aNumber < sequences) {
+
+        // saving the current servo positions as new step of sequence
+        for (int s=0; s < servos; s++) {
+          test_pos[aNumber][test_steps[aNumber]][s] = servo_target[s];
+        }
+        // increasing this sequence steps count by 1
+        test_steps[aNumber]++;
+      }
+    } else {
+      Serial.println('NOK');
+    }
+}
+
+void delLastStep(){
+  // this saves current position as a new step in the selected sequence
+
+  int aNumber;
+  char *arg;
+  
+    arg = sCmd.next(); // getting the sequence number from 1 - 0 cant be modded
+    
+    if (arg != NULL) {
+      aNumber = atoi(arg);    // Converts a char string to an integer
+      if (aNumber > 0 && aNumber < sequences) {
+        // removing last step in the sequence
+        test_steps[aNumber]--;
+        if (test_steps[aNumber] < 0) test_steps[aNumber] = 0;
+        Serial.println(test_steps[aNumber]);
+      }
+    } else {
+      Serial.println('NOK');
+    }
 }
 
 void allStop(){
   for (int n=0; n<4; n++){
     ledcWrite(n,0);
   }
+  in_loop = false;
 }
 
 void driveWheels() {
@@ -960,6 +1117,10 @@ void Walk(int spd, int dir){
     left  *= 0.75;
     right *= 0.75;
     drive(left, right);
+
+    // setting the initial move sequence 
+    set_sequence = 0;
+    test_step = 0;
     in_loop = true;
     }
     else {
