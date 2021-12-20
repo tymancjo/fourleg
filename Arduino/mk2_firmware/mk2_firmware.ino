@@ -31,7 +31,6 @@ SerialCommand sCmd; // The SerialCommand object
 #include "FS.h"
 #include "SPIFFS.h"
 
-//#include "html.h"
 #include "secret.h"
 
 // Replace with your network credentials
@@ -122,6 +121,7 @@ bool servo_inverse[servos] = {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0};
 
 // for making the incremental model
 float servo_up[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+float servo_side[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 float servo_fb[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 float servo_lr[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 float servo_legs[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -138,6 +138,13 @@ int waiting = 0;
 unsigned long now = millis();
 unsigned long last = millis();
 unsigned long last_step = millis();
+unsigned long idle_time = millis();
+unsigned long rand_sequence_time = millis();
+int idle_moves = 0;
+int idle_delay = 15000;
+bool use_random = true;
+bool in_random_sequence = false;
+bool last_rand = false;
 
 #define LEDPIN 2
 #define POWEROUT 12
@@ -188,14 +195,16 @@ void setup()
   sCmd.addCommand("show", showAngles);   // displaying back the current angles of all servos
   sCmd.addCommand("write", saveToFile);  // saving the sequences to file
   sCmd.addCommand("read", loadFromFile); // load the sequences form file
+  sCmd.addCommand("load", loadFromFile2); // load the sequences form file
 
   sCmd.addCommand("h", makeHoming);   // ressetting the servos to home position
   sCmd.addCommand("reset", makeZero); // ressetting the servos home to initial position - but no move make
   sCmd.addCommand("ramp", setRamp);   // set up the ramp value input as 990 gives 0.99 ramp etc.
 
   sCmd.addCommand("circ", makeCircle); // moving front back left right by 2 arguments
-  sCmd.addCommand("move", makeMove);   // triggering to makte move to current incremental set
+  sCmd.addCommand("move", makeMove);   // triggering to make the move to current incremental set
   sCmd.addCommand("up", makeUp);       // adding the value to the homing of the up/dn servos
+  sCmd.addCommand("side", makeSide);   // the left right leveling
   sCmd.addCommand("leg", moveLeg);     // set data for single leg incremental model move
   sCmd.addCommand("drv", driveWheels); // move the wheels by 2 params
   sCmd.addCommand("s", allStop);       // full stop for wheels
@@ -206,6 +215,7 @@ void setup()
 
   sCmd.addCommand("fake", fakeData);    // to test the fake serial data
   sCmd.addCommand("mode", toogleMmode); // toggle the interpoloation mode
+  sCmd.addCommand("random", toogleRandom);  // toggle random behaviour 
   sCmd.addCommand("step", setStepSize); // to set the single step size in degrees
   sCmd.addCommand("delay", setDelay);   // to set the each loop servos delay
 
@@ -335,6 +345,7 @@ void setup()
   }
   Serial.println();
   digitalWrite(LEDPIN, HIGH);
+  loadFromFile2();
 }
 
 // simple loop moving test - usefull for hardware verification.
@@ -361,8 +372,8 @@ void loop()
   // playing the storred sequence
   if (now > last_step + 100 && move_done && in_loop && test_steps[set_sequence] > 0)
   {
-
     last_step = now;
+    idle_time = now;
 
     DEBUG_PRINT(set_sequence);
     DEBUG_PRINT(':');
@@ -381,7 +392,57 @@ void loop()
     {
       test_step = 0;
     }
-  } // end of servo testing
+  } // end of servo sequence play
+
+  // checking for standing still too long
+  if (now > idle_time + idle_delay && use_random){
+    uint8_t selector = random(0,100);
+    if (selector > 20){
+        idle_moves++;
+        if (idle_moves < 10){
+            idle_delay = random(1000,4000);
+        } 
+        else {
+          idle_delay = random(8000,20000);
+          idle_moves = 0;
+        }
+
+        int look_x = random(0,40) - 20;
+        int look_y = random(0,60) - 15;
+        char chars[32];
+
+        sprintf(chars, "look %d %d\n", look_x, look_y);
+        command(chars);
+    } else if (selector > 10) {
+      in_random_sequence = true;
+      idle_delay = random(2000, 5000);
+      rand_sequence_time = now;
+      idle_time = now;
+      command("test 2\n");
+    } else {
+      // if selector is <10 
+      // we will turn l/r
+      in_random_sequence = true;
+      idle_delay = random(2000, 4000);
+      rand_sequence_time = now;
+      idle_time = now;
+      if (last_rand){
+        command("w 0 110\n");
+      } else {
+        command("w 0 -110\n");
+      }
+      last_rand = !last_rand;
+    }
+  }
+
+  // stoping random seq if active
+  if (in_random_sequence && now > rand_sequence_time+idle_delay){
+    command("s\n");
+    in_random_sequence = false;
+    idle_delay = random(1000,3000);
+  }
+
+
 
   // making the servos moves - the main loop action
   if (now > last + servo_delay)
@@ -480,6 +541,57 @@ void saveToFile()
   }
 }
 
+
+void loadFromFile2()
+{
+
+  File frame = SPIFFS.open("/frame.bin", "rb");
+  if (!frame)
+  {
+    // Serial.println("file open failed");
+  }
+  else
+  {
+    size_t filesize = frame.size(); //the size of the file in bytes
+    if (filesize > 0)
+    {
+      int pos = 1;
+      int load_seq;
+
+      while (pos < filesize)
+      {
+        uint8_t this_read;
+        frame.read(&this_read, sizeof(this_read));
+        if (this_read > 0 && (filesize-pos) > this_read*16)
+        {
+          load_seq++; // setting the sequence to load.
+          test_steps[load_seq] = (uint8_t)this_read;
+
+          // if the read byte shows some steps we continue
+          for (byte step = 0; step < this_read; step++)
+          {
+            // we read the amount of steps that was in the initial byte
+            // and we do it for each servo
+            for (byte servo = 0; servo < servos; servo++)
+            {
+              uint8_t servo_read;
+              frame.read(&servo_read, sizeof(servo_read));
+              test_pos[load_seq][step][servo] = (int)servo_read;
+              pos++;
+            }
+          }
+        }
+        else
+        {
+          break;
+        }
+      }
+    }
+    frame.close();
+  }
+} // loadFromFile2
+
+
 void loadFromFile()
 {
 
@@ -501,7 +613,7 @@ void loadFromFile()
       {
         uint8_t this_read;
         frame.read(&this_read, sizeof(this_read));
-        if (this_read > 0)
+        if (this_read > 0 && (filesize-pos) > this_read*16)
         {
           Serial.print("Set of steps:");
           Serial.println((int)this_read);
@@ -603,6 +715,11 @@ void command(char *cmd)
 {
   Serial.println(cmd);
   sCmd.readStr(cmd);
+}
+
+void toogleRandom(){
+  use_random = !use_random;
+  Serial.println(use_random);
 }
 
 void toogleMmode()
@@ -726,13 +843,67 @@ void makeMove()
     servo_target[s] += servo_up[s];
     servo_target[s] += servo_fb[s];
     servo_target[s] += servo_lr[s];
+    servo_target[s] += servo_side[s];
 
     servo_target[s] += servo_legs[s];
+
+    servo_target[s] = constrain(servo_target[s],0, 180);
+
   }
 
   getStepSize();
+  idle_time = now;
 
 } // makeMove
+
+
+void makeSide()
+{
+  // rising or lowering legs by sides.
+  int aNumber[2];
+  char *arg;
+  int arg_num = 0;
+
+  for (int a = 0; a < 2; a++)
+  {
+    // shifting the index
+    arg = sCmd.next();
+
+    if (arg != NULL)
+    {
+      aNumber[a] = atoi(arg); // Converts a char string to int
+      arg_num++;
+    }
+    else
+    {
+      // we escape as no argument was found.
+      DEBUG_PRINTLN("NOK");
+      break;
+    }
+  }
+
+  if (arg_num == 2)
+  {
+    // making legs up down
+
+    aNumber[0] = constrain(aNumber[0], -40, 40);
+    aNumber[1] = constrain(aNumber[1], -40, 40);
+
+    servo_side[0] = -aNumber[1];
+    servo_side[4] = -aNumber[1];
+
+    servo_side[2] = -aNumber[0];
+    servo_side[6] = -aNumber[0];
+
+    makeMove();
+  }
+  else
+  {
+    // we escape as no argument was found.
+    DEBUG_PRINTLN("NOK");
+  }
+
+} // makeSide
 
 void makeUp()
 {
@@ -971,6 +1142,7 @@ void makeZero()
     servo_fb[s] = 0;
     servo_lr[s] = 0;
     servo_legs[s] = 0;
+    servo_side[s] = 0;
   }
 }
 
@@ -1453,6 +1625,14 @@ void makeCircle()
         servo_fb[s] = theValue[0];
       }
     }
+    // leveling aron
+
+    servo_side[0] = theValue[1]/2;
+    servo_side[4] = theValue[1]/2;
+
+    servo_side[2] = -theValue[1]/2;
+    servo_side[6] = -theValue[1]/2;
+
     makeMove();
   }
 } // makeCircle
