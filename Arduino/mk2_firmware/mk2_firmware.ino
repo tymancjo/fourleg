@@ -296,7 +296,7 @@ void setup()
     WiFi.disconnect();
 
     delay(1000);
-    // Replace with your network credentials
+    // setting up self WiFi
     const char *ssid2 = "BB.LAB.ARON";
     const char *password2 = "123456789";
 
@@ -322,12 +322,12 @@ void setup()
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-              //    request->send_P(200, "text/html", index_html, processor);
               request->send(SPIFFS, "/index.html", "text/html");
             });
 
   server.on("/serial", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/serial.html", "text/html"); });
+
   server.on("/img", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(SPIFFS, "/aronmk2.jpg", "image/jpeg"); });
 
@@ -442,8 +442,6 @@ void loop()
     idle_delay = random(1000,3000);
   }
 
-
-
   // making the servos moves - the main loop action
   if (now > last + servo_delay)
   {
@@ -492,7 +490,11 @@ void loop()
 
 } // loop
 
-// Functions
+
+// Functions are placed in the separate file.
+// Aron Mk2 firmware 
+// Functions file.
+
 
 void saveToFile()
 {
