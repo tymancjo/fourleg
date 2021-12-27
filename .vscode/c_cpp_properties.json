@@ -5,7 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/Users/tymancjo/Documents/Arduino/**",
-                "/Users/tymancjo/Documents/Arduino/libraries/**"
+                "/Users/tymancjo/Documents/Arduino/libraries/**",
+                "/Users/tymancjo/Documents/Arduino/libraries",
+                "/Applications/Arduino.app/Contents/Java/libraries/**"
             ],
             "defines": [],
             "macFrameworkPath": [],
