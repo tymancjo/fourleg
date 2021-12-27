@@ -6,8 +6,9 @@
                 "${workspaceFolder}/**",
                 "/Users/tymancjo/Documents/Arduino/**",
                 "/Users/tymancjo/Documents/Arduino/libraries/**",
-                "/Users/tymancjo/Documents/Arduino/libraries",
-                "/Applications/Arduino.app/Contents/Java/libraries/**"
+                "/Applications/Arduino.app/Contents/Java/libraries/**",
+                "/Users/tymancjo/Library/Arduino15/**",
+                "/Users/tymancjo/Library/Mobile Documents/com~apple~CloudDocs/Documents/Arduino/libraries/**"
             ],
             "defines": [],
             "macFrameworkPath": [],

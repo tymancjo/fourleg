@@ -145,6 +145,7 @@ int idle_delay = 15000;
 bool use_random = true;
 bool in_random_sequence = false;
 bool last_rand = false;
+bool last_rand_walk = true;
 
 #define LEDPIN 2
 #define POWEROUT 12
@@ -188,7 +189,8 @@ void setup()
 
   // Setup callbacks for SerialCommand command
 
-  sCmd.addCommand("test", runTest);      // run the simple test sequence - just moves all servos in loop.
+  sCmd.addCommand("test", runTest);      // run the  test sequence - just moves all servos in loop.
+  sCmd.addCommand("back", runBack);      // run the  test sequence - just moves all servos in loop.
   sCmd.addCommand("save", saveStep);     // adding current position as new step in selected sequence
   sCmd.addCommand("del", delLastStep);   // removing last step from given sequence
   sCmd.addCommand("power", togglePower); // toggle the power out
@@ -351,8 +353,9 @@ void setup()
 // simple loop moving test - usefull for hardware verification.
 const int sequences = 10; // the total numbeer of available sequences
 const int max_steps = 30; // the max number of steps in each sequence
-uint8_t test_step = 0;
+int test_step = 0;
 uint8_t set_sequence = 0;
+int seq_direction = 1;
 uint8_t test_steps[sequences] = {2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 uint8_t test_pos[sequences][max_steps][servos] = {
@@ -384,7 +387,7 @@ void loop()
     {
       servo_target[s] = test_pos[set_sequence][test_step][s];
     }
-    test_step++;
+    test_step += seq_direction;
     move_done = false;
     getStepSize();
 
@@ -392,6 +395,7 @@ void loop()
     {
       test_step = 0;
     }
+    if (test_step < 0) test_step = test_steps[set_sequence]-1;
   } // end of servo sequence play
 
   // checking for standing still too long
@@ -413,12 +417,20 @@ void loop()
 
         sprintf(chars, "look %d %d\n", look_x, look_y);
         command(chars);
+
     } else if (selector > 10) {
       in_random_sequence = true;
-      idle_delay = random(2000, 5000);
+      idle_delay = random(3000, 7000);
       rand_sequence_time = now;
       idle_time = now;
-      command("test 2\n");
+
+      if (last_rand_walk) {
+          command("test 2\n");
+        } else {
+          command("back 2\n");
+        }
+        last_rand_walk = !last_rand_walk;  
+
     } else {
       // if selector is <10 
       // we will turn l/r
@@ -1173,16 +1185,45 @@ void runTest()
   if (arg != NULL)
   {
     aNumber = atoi(arg); // Converts a char string to an integer
-    if (aNumber > -1 && aNumber < sequences)
+    if (aNumber > -1 && aNumber < sequences){
       set_sequence = aNumber;
-    test_step = 0;
-    in_loop = true;
+      test_step = 0;
+      seq_direction = 1;
+      in_loop = true;
+      }
   }
   else
   {
     Serial.println('NOK');
   }
 }
+
+
+void runBack()
+{
+  // this one toggle the looping of the test set.
+
+  int aNumber;
+  char *arg;
+
+  arg = sCmd.next();
+
+  if (arg != NULL)
+  {
+    aNumber = atoi(arg); // Converts a char string to an integer
+    if (aNumber > -1 && aNumber < sequences){
+      set_sequence = aNumber;
+      test_step = test_steps[set_sequence]-1;
+      seq_direction = -1;
+      in_loop = true;
+      }
+  }
+  else
+  {
+    Serial.println('NOK');
+  }
+}
+
 
 void saveStep()
 {
