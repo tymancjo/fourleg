@@ -1,24 +1,23 @@
-# Imports for use audio input and speech recognition
+# This script act as a voice command remote control for Aron RoboDog.
+# It need to connect to the robot via Bluetooth 
+# And it's based on the SpeechRecognition library with use of the google 
+# online voice to text service - hence it need a internet connection.
 
+
+# Imports for use audio input and speech recognition
 import speech_recognition as sr
 # Imports for the use of BLE connectivity
 import asyncio
 from bleak import BleakClient, BleakScanner 
 from bleak.exc import BleakError
 
-
-
 # Preparing to use the BLE connectivity
-# -- Windows only configuration --
-try:
-    from ctypes import windll
-    windll.shcore.SetProcessDpiAwareness(1)
-except:
-    pass
-    
+# making a class to handle BT  
 class myBT:
 
-    def __init__(self):
+    def __init__(self, uuid):
+
+        self.uuid = uuid
         self.BTsetup();
         self.connect();
 
@@ -32,13 +31,11 @@ class myBT:
         self.is_serial = False
         self.is_BLE = False
 
-        self.uuid = "0000ffe0-0000-1000-8000-00805f9b34fb"
-        self.uuid2 = "0000ffe1-0000-1000-8000-00805f9b34fb"
-        # self.uuid = "A5F4E928-D493-C858-ADFE-E57B3BBFCB6E"
+        # self.uuid2 = "0000ffe1-0000-1000-8000-00805f9b34fb"
 
 
     async def BTsearch(self):
-        scanner = BleakScanner(service_uuids=[self.uuid,])
+        scanner = BleakScanner(service_uuids=[self.uuid])
         devices = await scanner.discover(service_uuids=[self.uuid,])
         for i,d in enumerate(devices):
             print(f"[{i}]\t{d.name}\t{d.address}")
@@ -48,7 +45,7 @@ class myBT:
 
 
     async def BTgetServices(self ):
-        scanner = BleakScanner(service_uuids=[self.uuid,])
+        scanner = BleakScanner(service_uuids=[self.uuid])
         device = await scanner.find_device_by_address(self.the_device, timeout=20.0,service_uuids=[self.uuid])
         
         if not device:
@@ -77,7 +74,7 @@ class myBT:
         print("Connecting...")
         print("trying direct BLE connection...")
 
-        self.client = BleakClient(self.the_device,timeout=10, service_uuids=[self.uuid,self.uuid2])
+        self.client = BleakClient(self.the_device,timeout=10, service_uuids=[self.uuid])
         await self.client.connect()
         connection_status = self.client.is_connected
         print(f"Connection status: {connection_status}")
@@ -121,10 +118,10 @@ class myBT:
             self.loop.run_until_complete(self.BTsearch())
 
             if self.the_device:
-                print(f"there is Mariola at {self.the_device}")
+                print(f"there is Aron unit at {self.the_device}")
                 self.loop.run_until_complete(self.BTgetServices())
                 if self.the_service:
-                    print(f"Found Vendor sercvice at {self.the_service}")
+                    print(f"Found Vendor services at {self.the_service}")
                     self.loop.run_until_complete(self.BTconnect())
             else:
                 print("No Aron BT05 found :(")
@@ -132,32 +129,41 @@ class myBT:
         else:
             print("Shall be already connected...")
 
+# Some helper function to check for the command in text
+def isInText(command, text):
+    for t in command.split():
+        if t in text:
+            return True
+    return False
+
 # making the BT connection
-Aron = myBT()
+Aron = myBT("0000ffe0-0000-1000-8000-00805f9b34fb")
 Aron.connect()
 
 
 # Some pre set for the recognition
 r=sr.Recognizer()
-r.energy_threshold=4000
+# This makes the bck noise level sensitivity more reasonable
+r.energy_threshold=1000
 r.dynamic_energy_threshold = False
+rec_language = "pl-PL"
 
-# some handy helper vals
+# some handy helper variables
 look_around = True
 text = ""
 
 while True:
-    print("Say something...")
+    print("Powiedz coś...")
     with sr.Microphone() as source:
         audio=r.listen(source)
 
     try:
-        text = r.recognize_google(audio, language="pl-PL")
-        print("Speech was:" + text)
+        text = r.recognize_google(audio, language=rec_language)
+        print("Usłyszano:" + text)
     except LookupError:
-        print('Speech not understood')
+        print('Nie rozpoznano')
     except sr.UnknownValueError:
-        print("Nierozpozane")
+        print("Coś nie zadziałało")
 
     text = text.lower()
     if "stop" in text:
@@ -169,27 +175,29 @@ while True:
         if "koniec" in text:
             Aron.BLE_sent("s \n")
             break
-        if "siadaj" in text or "siad" in text:
+        elif isInText("siadaj siad", text):
             print("siad!")
+            Aron.BLE_sent("s \n")
             Aron.BLE_sent("up 50 -50 \n")
 
-        if "stój" in text or "trop" in text:
-            print("siad!")
+        elif isInText("stój trop", text):
+            print("trop!")
+            Aron.BLE_sent("s \n")
             Aron.BLE_sent("up 50 50 \n")
             
-        if "noga" in text:
+        elif "noga" in text:
             print("noga")
             Aron.BLE_sent("test 2 \n")
 
-        if "tyłu" in text or "cofnij" in text:
+        elif isInText("tyłu cofnij wracaj", text):
             print("back")
             Aron.BLE_sent("back 2 \n")
 
-        if "cicho" in text or "spokój" in text or "ruchy" in text:
+        elif isInText("cicho spokój ruchy", text):
             print("random")
             Aron.BLE_sent("random \n")
 
-        if "szukaj" in text:
+        elif "szukaj" in text:
             if look_around:
                 Aron.BLE_sent("w 0 -100 \n")    
             else:
