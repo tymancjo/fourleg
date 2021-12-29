@@ -33,7 +33,7 @@ SerialCommand sCmd; // The SerialCommand object
 
 #include "secret.h"
 
-// Replace with your network credentials
+// the credentials comes from the secret.h file
 const char *ssid = SSIDs;
 const char *password = PASSs;
 
@@ -45,6 +45,7 @@ AsyncWebSocket ws("/ws");
 
 void notifyClients()
 {
+  // I don't use anyting to be send back
 }
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
@@ -91,7 +92,7 @@ String processor(const String &var)
 
 // ******************
 
-// called this way, it uses the default address 0x40
+// Setting up the PCA9685 units
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
 Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60);
 
@@ -104,7 +105,7 @@ Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x60);
 #define SERVOMAX 495  // This is the 'maximum' pulse length count (out of 4096)
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
 
-// our servo # counter
+// setting up the variabes for the servos
 uint8_t servonum = 0;
 const uint8_t servos = 16;
 uint8_t servo_delay = 20;
@@ -236,6 +237,7 @@ void setup()
     servo_ramp[k] = 0.95;
   }
 
+  // kicking off the PCA units
   pwm.begin();
   pwm2.begin();
 
@@ -347,17 +349,20 @@ void setup()
   }
   Serial.println();
   digitalWrite(LEDPIN, HIGH);
-  loadFromFile2();
+  loadFromFile2(); // loading the stored in file move sequences
 }
 
 // simple loop moving test - usefull for hardware verification.
 const int sequences = 10; // the total numbeer of available sequences
 const int max_steps = 30; // the max number of steps in each sequence
-int test_step = 0;
-uint8_t set_sequence = 0;
-int seq_direction = 1;
+int test_step = 0;  // the step counter for seq playback
+uint8_t set_sequence = 0; // the selected sequence for playback
+int seq_direction = 1; // its 1 or -1 is the step by which the seq is proceed
 uint8_t test_steps[sequences] = {2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t seq_repetitions = 50;
+uint8_t this_repetitions = 0;
 
+// this is the hardcoded move sequence used for walk command
 uint8_t test_pos[sequences][max_steps][servos] = {
     {// first sequence
      {70, 70, 110, 110, 110, 110, 70, 70, 140, 80, 90, 40, 90, 90, 90, 90},
@@ -373,7 +378,7 @@ void loop()
   ws.cleanupClients();
 
   // playing the storred sequence
-  if (now > last_step + 100 && move_done && in_loop && test_steps[set_sequence] > 0)
+  if (now > last_step + 100 && move_done && in_loop && test_steps[set_sequence] > 0 && this_repetitions < seq_repetitions)
   {
     last_step = now;
     idle_time = now;
@@ -394,9 +399,17 @@ void loop()
     if (test_step >= test_steps[set_sequence])
     {
       test_step = 0;
+      this_repetitions++;
     }
-    if (test_step < 0) test_step = test_steps[set_sequence]-1;
+    if (test_step < 0) {
+      test_step = test_steps[set_sequence]-1;
+      this_repetitions++;
+    }
   } // end of servo sequence play
+
+  if( this_repetitions >= seq_repetitions ){
+    drive(0,0);
+  }
 
   // checking for standing still too long
   if (now > idle_time + idle_delay && use_random){
@@ -420,7 +433,7 @@ void loop()
 
     } else if (selector > 10) {
       in_random_sequence = true;
-      idle_delay = random(3000, 7000);
+      idle_delay = random(4000, 9000);
       rand_sequence_time = now;
       idle_time = now;
 
@@ -1190,12 +1203,28 @@ void runTest()
       test_step = 0;
       seq_direction = 1;
       in_loop = true;
+      this_repetitions = 0;
       }
   }
   else
   {
     Serial.println('NOK');
   }
+  // checking for second argument
+  arg = sCmd.next();
+  if (arg != NULL)
+  {
+    // we have second argument - the repetition count
+    aNumber = atoi(arg); // Converts a char string to an integer
+    seq_repetitions = constrain(aNumber,1,200); 
+    Serial.println("got 2nd");
+    Serial.println(aNumber);
+  }
+  else {
+    Serial.println("uuuu nie idzie");
+    seq_repetitions = 50;
+  }
+
 }
 
 
@@ -1205,6 +1234,7 @@ void runBack()
 
   int aNumber;
   char *arg;
+  char *arg2;
 
   arg = sCmd.next();
 
@@ -1216,11 +1246,23 @@ void runBack()
       test_step = test_steps[set_sequence]-1;
       seq_direction = -1;
       in_loop = true;
+      this_repetitions = 0;
       }
   }
   else
   {
     Serial.println('NOK');
+  }
+  // checking for second argument
+  arg2 = sCmd.next();
+  if (arg2 != NULL)
+  {
+    // we have second argument - the repetition count
+    aNumber = atoi(arg2); // Converts a char string to an integer
+    seq_repetitions = constrain(aNumber,1,200); 
+  }
+  else {
+    seq_repetitions = 50;
   }
 }
 
@@ -1438,6 +1480,8 @@ void Walk(int spd, int dir)
     set_sequence = 0;
     test_step = 0;
     in_loop = true;
+    this_repetitions = 0;
+    seq_repetitions = 200;
   }
   else
   {

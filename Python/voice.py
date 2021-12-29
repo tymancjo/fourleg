@@ -175,10 +175,15 @@ while True:
         if "koniec" in text:
             Aron.BLE_sent("s")
             break
-        elif isInText("siadaj siad", text):
+        elif isInText("siadaj siad świat kwiat", text):
             print("siad!")
             Aron.BLE_sent("s")
             Aron.BLE_sent("up 50 -50")
+
+        elif isInText("leżeć leż", text):
+            print("leżeć!")
+            Aron.BLE_sent("s")
+            Aron.BLE_sent("up -50 -50")
 
         elif isInText("stój trop", text):
             print("trop!")
@@ -187,11 +192,13 @@ while True:
             
         elif "noga" in text:
             print("noga")
-            Aron.BLE_sent("test 2")
+            Aron.BLE_sent("s")
+            Aron.BLE_sent("test 2 10")
 
-        elif isInText("tyłu cofnij wracaj", text):
+        elif isInText("cofnij wracaj", text):
             print("back")
-            Aron.BLE_sent("back 2")
+            Aron.BLE_sent("s")
+            Aron.BLE_sent("back 2 10")
 
         elif isInText("cicho spokój ruchy", text):
             print("random")
@@ -204,6 +211,18 @@ while True:
                 Aron.BLE_sent("w 0 100")    
 
             look_around = not look_around
+
+        elif isInText("lewo", text):
+            Aron.BLE_sent("w 0 -100")
+
+        elif isInText("prawo", text):
+            Aron.BLE_sent("w 0 100")
+
+        elif isInText("ruszaj przodu", text):
+            Aron.BLE_sent("w 100 0")
+
+        elif isInText("tyłu", text):
+            Aron.BLE_sent("w -100 0")
 
     text = ""
 
