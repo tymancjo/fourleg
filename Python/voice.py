@@ -106,7 +106,7 @@ class myBT:
                 self.loop.run_until_complete(self.BTconnect()) 
 
     def BLE_sent(self, command):
-        self.loop.run_until_complete(self.BTwrite(command))
+        self.loop.run_until_complete(self.BTwrite(command+"\n"))
 
     def disconnect(self):
         self.loop.run_until_complete(self.BTdisconnect())
@@ -168,40 +168,40 @@ while True:
     text = text.lower()
     if "stop" in text:
         print("stop")
-        Aron.BLE_sent("s \n")
+        Aron.BLE_sent("s")
 
     if "aron" in text:
         print("got command!")
         if "koniec" in text:
-            Aron.BLE_sent("s \n")
+            Aron.BLE_sent("s")
             break
         elif isInText("siadaj siad", text):
             print("siad!")
-            Aron.BLE_sent("s \n")
-            Aron.BLE_sent("up 50 -50 \n")
+            Aron.BLE_sent("s")
+            Aron.BLE_sent("up 50 -50")
 
         elif isInText("stój trop", text):
             print("trop!")
-            Aron.BLE_sent("s \n")
-            Aron.BLE_sent("up 50 50 \n")
+            Aron.BLE_sent("s")
+            Aron.BLE_sent("up 50 50")
             
         elif "noga" in text:
             print("noga")
-            Aron.BLE_sent("test 2 \n")
+            Aron.BLE_sent("test 2")
 
         elif isInText("tyłu cofnij wracaj", text):
             print("back")
-            Aron.BLE_sent("back 2 \n")
+            Aron.BLE_sent("back 2")
 
         elif isInText("cicho spokój ruchy", text):
             print("random")
-            Aron.BLE_sent("random \n")
+            Aron.BLE_sent("random")
 
         elif "szukaj" in text:
             if look_around:
-                Aron.BLE_sent("w 0 -100 \n")    
+                Aron.BLE_sent("w 0 -100")    
             else:
-                Aron.BLE_sent("w 0 100 \n")    
+                Aron.BLE_sent("w 0 100")    
 
             look_around = not look_around
 
