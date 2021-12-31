@@ -11,6 +11,10 @@ import asyncio
 from bleak import BleakClient, BleakScanner 
 from bleak.exc import BleakError
 
+# general imports
+import time
+import random
+
 # Preparing to use the BLE connectivity
 # making a class to handle BT  
 class myBT:
@@ -204,11 +208,20 @@ while True:
             print("random")
             Aron.BLE_sent("random")
 
-        elif "szukaj" in text:
+        elif isInText("łapa noga daj łapę mapa", text):
+            Aron.BLE_sent("s")
+            time.sleep(0.5)
+            Aron.BLE_sent("test 4 1")
+            time.sleep(random.randint(2,7))
+            Aron.BLE_sent("back 4 1")
+
+
+        elif isInText("szukaj szuka", text):
+            Aron.BLE_sent("s")
             if look_around:
-                Aron.BLE_sent("w 0 -100")    
+                Aron.BLE_sent("test 3 5")    
             else:
-                Aron.BLE_sent("w 0 100")    
+                Aron.BLE_sent("back 3 5")    
 
             look_around = not look_around
 

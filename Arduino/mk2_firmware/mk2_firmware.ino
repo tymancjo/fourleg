@@ -127,7 +127,7 @@ float servo_fb[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 float servo_lr[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 float servo_legs[servos] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-float servo_current[servos];
+float servo_current[servos] = {150, 90, 150, 90, 150, 90, 150, 90, 90, 90, 90, 90, 0, 0, 0, 0};
 float servo_ramp[servos];
 float servo_step[servos] = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2};
 
@@ -147,6 +147,7 @@ bool use_random = true;
 bool in_random_sequence = false;
 bool last_rand = false;
 bool last_rand_walk = true;
+bool last_rand_walk2 = true;
 
 #define LEDPIN 2
 #define POWEROUT 12
@@ -156,7 +157,7 @@ bool last_rand_walk = true;
 #define M2A 26
 #define M2B 27
 
-//#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT(x) Serial.print(x)
 #define DEBUG_PRINTLN(x) Serial.println(x)
@@ -222,6 +223,9 @@ void setup()
   sCmd.addCommand("step", setStepSize); // to set the single step size in degrees
   sCmd.addCommand("delay", setDelay);   // to set the each loop servos delay
 
+  sCmd.addCommand("setraw", setAllServosRaw);  // kind of the backdoor function to set all servos
+  sCmd.addCommand("list", listSequences);   // listing the current sequences to serial port
+
   // sCmd.addCommand("s", setServo);             // set a single servo command
   // sCmd.addCommand("d", setServoDelta);        // set a single servo by delta angle command
   // sCmd.addCommand("ad", setAllServosDelta);   // move all by individual deltas
@@ -232,8 +236,7 @@ void setup()
   // preparing the inital positions.
   for (int k = 0; k < servos; k++)
   {
-    //servo_target[k] = 90;
-    servo_current[k] = 80;
+    set_servo(k,servo_current[k]);
     servo_ramp[k] = 0.95;
   }
 
@@ -414,7 +417,7 @@ void loop()
   // checking for standing still too long
   if (now > idle_time + idle_delay && use_random){
     uint8_t selector = random(0,100);
-    if (selector > 20){
+    if (selector > 30){
         idle_moves++;
         if (idle_moves < 10){
             idle_delay = random(1000,4000);
@@ -431,7 +434,7 @@ void loop()
         sprintf(chars, "look %d %d\n", look_x, look_y);
         command(chars);
 
-    } else if (selector > 10) {
+    } else if (selector > 20) {
       in_random_sequence = true;
       idle_delay = random(4000, 9000);
       rand_sequence_time = now;
@@ -443,6 +446,19 @@ void loop()
           command("back 2\n");
         }
         last_rand_walk = !last_rand_walk;  
+
+    } else if (selector > 10) {
+      in_random_sequence = true;
+      idle_delay = random(6000, 11000);
+      rand_sequence_time = now;
+      idle_time = now;
+
+      if (last_rand_walk) {
+          command("test 3\n");
+        } else {
+          command("back 3\n");
+        }
+        last_rand_walk2 = !last_rand_walk2;  
 
     } else {
       // if selector is <10 
@@ -520,6 +536,29 @@ void loop()
 // Aron Mk2 firmware 
 // Functions file.
 
+void listSequences(){
+  /*
+  This function prints out all the sequences (beside the hardcoded 0)
+  to the serial port as txt
+  Is introduced to make the copy of saved in spiffs file data.
+  */
+
+  for(int seq=1; seq < sequences; seq++){
+    Serial.print("Sequence ");
+    Serial.println(seq);
+    if (test_steps[seq]>0){
+      for(int step=0; step<test_steps[seq]; step++){
+        Serial.print("setraw ");
+        for (int servo=0; servo<servos; servo++){
+          Serial.print(test_pos[seq][step][servo]);
+          Serial.print(" ");
+        }
+        Serial.println();
+      }
+      Serial.println();
+    }
+  }
+}
 
 void saveToFile()
 {
@@ -617,6 +656,8 @@ void loadFromFile2()
     frame.close();
   }
 } // loadFromFile2
+
+
 
 
 void loadFromFile()
@@ -1723,6 +1764,56 @@ void makeCircle()
     makeMove();
   }
 } // makeCircle
+
+
+void setAllServosRaw()
+{
+/*
+  Function to set all servos to a given position
+  This may be usefull in some recovery situations
+  Not really intended to be use as a main drive one. 
+*/
+  int theValue[16];
+  int arg_num = 0;
+  char *arg;
+
+  for (int a = 0; a < 16; a++)
+  {
+    // shifting the index
+    arg = sCmd.next();
+
+    if (arg != NULL)
+    {
+      theValue[a] = atoi(arg); // Converts a char string to an integer
+      arg_num++;
+      DEBUG_PRINT("argument ");
+      DEBUG_PRINT(a);
+      DEBUG_PRINT(" = ");
+      DEBUG_PRINTLN(theValue[a]);
+    }
+    else
+    {
+      // we escape as no argument was found.
+      DEBUG_PRINTLN("NOK  16 args expected");
+      break;
+    }
+  }
+
+  if (arg_num == 16)
+  {
+    // we move all sevos by this delta
+    for (int s = 0; s < servos; s++)
+    {
+
+      int alfa = theValue[s];
+
+      if (-1 < alfa && alfa < 181)
+      {
+        servo_target[s] = alfa;
+      }
+    }
+  }
+} // setAllServosRaw
 
 void setAllServosDelta()
 {
