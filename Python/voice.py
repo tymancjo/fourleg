@@ -118,10 +118,10 @@ class myBT:
             if redial and self.the_service:
                 self.loop.run_until_complete(self.BTconnect())
 
-    def BLE_sent(self, command):
+    def BLE_sent(self, command: str) -> None:
         self.loop.run_until_complete(self.BTwrite(command + "\n"))
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         self.loop.run_until_complete(self.BTdisconnect())
 
     def connect(self):
@@ -144,7 +144,7 @@ class myBT:
 
 
 # Some helper function to check for the command in text
-def isInText(command, text):
+def isInText(command: str, text: str) -> bool:
     for t in command.split():
         if t in text:
             return True
